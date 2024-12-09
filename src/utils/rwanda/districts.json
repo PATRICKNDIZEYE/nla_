@@ -1,0 +1,302 @@
+[
+  {
+    "id": "0865f82e-c716-4ae7-a85a-73e80a26dd59",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0307",
+    "name": "NYAMASHEKE",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "0fbe55b7-f42a-41c0-85ad-317a1a4f350e",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0204",
+    "name": "HUYE",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "19d6a862-27f0-410e-8ca1-4e7faf9382e2",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0507",
+    "name": "BUGESERA",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "240e4163-c561-4285-b740-26f00618f57b",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0505",
+    "name": "KIREHE",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "2923eff5-5913-4111-a0d0-be5efdfee51c",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0203",
+    "name": "NYARUGURU",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "2d8b3f63-400f-4533-b298-5f6a774cbc62",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "dd0b9de2-d118-4c3a-96cb-d89f37e7afac",
+    "code": "0101",
+    "name": "NYARUGENGE",
+    "created_at": "2023-09-05 10:48:55",
+    "updated_at": "2023-09-05 10:48:55",
+    "deleted_at": ""
+  },
+  {
+    "id": "31c83871-03e4-419b-b3d9-d894ec5ffcf7",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0301",
+    "name": "KARONGI",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "33990629-0fdb-44e8-87a8-846103b4daee",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "acf51649-b642-4bb8-843c-68e6a60dc32c",
+    "code": "0405",
+    "name": "GICUMBI",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "349d2291-a44f-48d6-a8a7-119bbfca7c3f",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0205",
+    "name": "NYAMAGABE",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "47eb7c25-4c58-4ec5-8026-d8369ec8a2f5",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "acf51649-b642-4bb8-843c-68e6a60dc32c",
+    "code": "0401",
+    "name": "RULINDO",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "5ef07013-1ceb-4bcd-8919-806f8b94734c",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "acf51649-b642-4bb8-843c-68e6a60dc32c",
+    "code": "0403",
+    "name": "MUSANZE",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "5f7df53e-5e96-486e-b2f3-51fd02167864",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0302",
+    "name": "RUTSIRO",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "634a1730-f04e-4ce6-a4d8-fbc6e053cf42",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0202",
+    "name": "GISAGARA",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "6a4dbb8b-e007-4df1-92b9-55b390279b7e",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0502",
+    "name": "NYAGATARE",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "6d4afd26-5eb1-47a0-a9eb-61441a3cff5c",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0305",
+    "name": "NGORORERO",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "7374e1e2-0df7-47d9-b611-e5933ba73028",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "dd0b9de2-d118-4c3a-96cb-d89f37e7afac",
+    "code": "0103",
+    "name": "KICUKIRO",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "765bec44-e5c2-49ae-83d1-6e8f9557431e",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "acf51649-b642-4bb8-843c-68e6a60dc32c",
+    "code": "0404",
+    "name": "BURERA",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "785b2843-6de5-469d-bc44-902a91680564",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0208",
+    "name": "KAMONYI",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "8e10653f-0ff1-44a2-a33b-a94c4ba24279",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0206",
+    "name": "RUHANGO",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "9bb87ac8-f968-4b67-9347-030419863d1f",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0303",
+    "name": "RUBAVU",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "a31c4619-9fe8-4eb5-bb36-db058592b690",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0504",
+    "name": "KAYONZA",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "aa8dc0a5-3738-48f9-8039-03a8aa1f4333",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0503",
+    "name": "GATSIBO",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "ab19dce5-3ab4-4b9f-8eed-4bb8e82cb9bd",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0207",
+    "name": "MUHANGA",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "ac73e9ea-d9c7-4b2b-a5a3-75bbfd17bfd5",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0306",
+    "name": "RUSIZI",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "b235b7dc-e901-4a3c-b3ca-0c3151093fcf",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0506",
+    "name": "NGOMA",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  },
+  {
+    "id": "c95c05c0-e356-484b-a295-f74dfe0b3bd4",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "acf51649-b642-4bb8-843c-68e6a60dc32c",
+    "code": "0402",
+    "name": "GAKENKE",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "e2c6d9cd-5f06-4a71-9c43-74e0bbd0d6ca",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "fe544530-2829-4522-ad86-1ee5dd2248f6",
+    "code": "0201",
+    "name": "NYANZA",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "e6e47d1f-bc3d-4f00-99b7-9a6c458323f8",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e97f3cef-d377-4e56-9b97-b9a52049ca9a",
+    "code": "0304",
+    "name": "NYABIHU",
+    "created_at": "2023-09-05 10:48:57",
+    "updated_at": "2023-09-05 10:48:57",
+    "deleted_at": ""
+  },
+  {
+    "id": "f356d30d-e8d9-430c-b6e8-6a2af45f63f1",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "dd0b9de2-d118-4c3a-96cb-d89f37e7afac",
+    "code": "0102",
+    "name": "GASABO",
+    "created_at": "2023-09-05 10:48:56",
+    "updated_at": "2023-09-05 10:48:56",
+    "deleted_at": ""
+  },
+  {
+    "id": "f3ba134c-86ad-4229-9a8c-502bee3bfa23",
+    "country": "a4841b05-3d0e-4015-9959-e34745d51cb2",
+    "province": "e5a26705-ab46-4203-9fb3-5a93ddfe325c",
+    "code": "0501",
+    "name": "RWAMAGANA",
+    "created_at": "2023-09-05 10:48:58",
+    "updated_at": "2023-09-05 10:48:58",
+    "deleted_at": ""
+  }
+]

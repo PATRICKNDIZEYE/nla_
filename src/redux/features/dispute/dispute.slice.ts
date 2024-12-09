@@ -1,0 +1,200 @@
+import { IDispute } from "@/@types/dispute.type";
+import { ResponseError } from "@/@types/error.type";
+import {
+  IDataResponse,
+  IPaginatedData,
+  TableParams,
+} from "@/@types/pagination";
+import { initialPaginatedState } from "@/@types/state.type";
+import axiosInstance from "@/utils/config/axios.config";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+
+export const getAllDisputes = createAsyncThunk(
+  "dispute/getAllDisputes",
+  async (params: TableParams) => {
+    try {
+      let query = "/disputes";
+      if (params) {
+        query += `?page=${params.pagination?.current}&limit=${params.pagination?.pageSize}`;
+        if (params.search) {
+          query += `&search=${params.search}`;
+        }
+        if (params.role) {
+          query += `&role=${params.role}`;
+        }
+        if (params.status) {
+          query += `&status=${params.status}`;
+        }
+        if (params.userId) {
+          query += `&userId=${params.userId}`;
+        }
+        if (params.level) {
+          query += `&level=${params.level}`;
+        }
+      }
+      const { data } = await axiosInstance.get<IPaginatedData<IDispute>>(query);
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const getDisputeById = createAsyncThunk(
+  "dispute/getDisputeById",
+  async (id: string) => {
+    try {
+      const { data } = await axiosInstance.get<IDataResponse<IDispute>>(
+        `/disputes/${id}`
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const createDispute = createAsyncThunk(
+  "dispute/createDispute",
+  async (payload: FormData) => {
+    try {
+      const { data } = await axiosInstance.post<IDataResponse<IDispute>>(
+        "/disputes",
+        payload,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const updateStatus = createAsyncThunk(
+  "dispute/updateStatus",
+  async (
+    payload: {
+      disputeId: string;
+      status: IDispute["status"];
+      userId: string;
+      feedback?: string;
+    } & { stampedLetter?: any }
+  ) => {
+    try {
+      console.log(payload.stampedLetter);
+      const formData = new FormData();
+      if (payload.stampedLetter) {
+        formData.append("stampedLetter", payload.stampedLetter);
+      }
+      if (payload.feedback) {
+        formData.append("feedback", payload.feedback);
+      }
+      const { data } = await axiosInstance.put<IDataResponse<IDispute>>(
+        `/disputes/${payload.disputeId}?userId=${payload.userId}&status=${payload.status}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+const initialState = initialPaginatedState<IDispute>();
+
+const disputeSlice = createSlice({
+  name: "dispute",
+  initialState,
+  reducers: {
+    clearDispute: () => initialState,
+    setSingleDispute: (
+      state,
+      {
+        payload,
+      }: {
+        payload: IDispute;
+      }
+    ) => {
+      state.data.singleData = payload;
+    },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(getAllDisputes.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(getAllDisputes.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.data = payload;
+    });
+    builder.addCase(getAllDisputes.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+    builder.addCase(getDisputeById.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(getDisputeById.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.data.singleData = payload.data;
+      state.data.data = state.data.data.map((dispute) => {
+        if (dispute._id === payload.data._id) {
+          return payload.data;
+        }
+        return dispute;
+      });
+    });
+    builder.addCase(getDisputeById.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+    builder.addCase(createDispute.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(createDispute.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.data.data.unshift(payload.data);
+    });
+    builder.addCase(createDispute.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+
+    builder.addCase(updateStatus.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(updateStatus.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.data.singleData = payload.data;
+      state.data.data = state.data.data.map((dispute) => {
+        if (dispute._id === payload.data._id) {
+          return {
+            ...dispute,
+            status: payload.data.status,
+          };
+        }
+        return dispute;
+      });
+    });
+    builder.addCase(updateStatus.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+  },
+});
+
+export const { clearDispute, setSingleDispute } = disputeSlice.actions;
+
+export default disputeSlice.reducer;

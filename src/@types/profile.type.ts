@@ -1,0 +1,36 @@
+export interface IProfile {
+  DocumentNumber: string;
+  DocumentType: string;
+  IssueNumber: string;
+  DateOfIssue: string;
+  DateOfExpiry: string;
+  PlaceOfIssue: string;
+  ApplicationNumber: string;
+  Nin: string;
+  ForeName: string;
+  Surnames: string;
+  FatherNames: string;
+  MotherNames: string;
+  Sex: string;
+  DateOfBirth: string;
+  PlaceOfBirth: string;
+  CountryOfBirth: string;
+  BirthCountry: string;
+  VillageId: string;
+  Village: string;
+  Cell: string;
+  Sector: string;
+  District: string;
+  Province: string;
+  CivilStatus: string;
+  MaritalStatus: string;
+  Spouse: string | null;
+  TimeSubmitted: string;
+  Status: string;
+  Photo: string;
+  Nationality: string;
+  ApplicantType: string;
+  CountryOfDomicileCode: string;
+  CountryOfDomicile: string;
+  Signature?: string;
+}

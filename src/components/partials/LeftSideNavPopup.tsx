@@ -143,7 +143,7 @@ const LeftSideNavPopup = () => {
               </li>
               <li
                 className={`${
-                  ["admin", "manager"].includes(user?.level?.role as string)
+                  ["admin", "manager"].includes(user?.level?.accountRole!)
                     ? "block"
                     : "hidden"
                 }`}
@@ -263,7 +263,7 @@ const LeftSideNavPopup = () => {
               </li>
               <li
                 className={`${
-                  ["admin", "manager"].includes(user?.level?.role as string)
+                  ["admin", "manager"].includes(user?.level?.accountRole!)
                     ? "block"
                     : "hidden"
                 }`}
@@ -345,7 +345,7 @@ const LeftSideNavPopup = () => {
               </li>
               <li
                 className={`${
-                  ["admin", "manager"].includes(user?.level?.role as string)
+                  ["admin", "manager"].includes(user?.level?.accountRole!)
                     ? "block"
                     : "hidden"
                 }`}

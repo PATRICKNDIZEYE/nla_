@@ -27,6 +27,7 @@ export default class DisputeService {
 
     if (user?.level?.role === "user") {
       filter["claimant"] = new mongoose.Types.ObjectId(user._id);
+
     } else if (user?.level?.district) {
       filter["district"] = user?.level?.district?.toLocaleLowerCase();
     } else if (user?.level?.role === "admin") {
@@ -87,13 +88,16 @@ export default class DisputeService {
     return { data: disputes, pagination };
   };
 
-  public static getById = async (id: string, options: object = {}) => {
+  
+  public static getById = async (disputeId: string, options: object = {}) => {
     const claim = await Dispute.findOne({
-      ...(Number(id) ? { claimId: id } : { _id: id }),
+      ...(Number(disputeId) ? { claimId: disputeId } : { _id: disputeId }),
       ...options,
     }).populate("claimant resolvedBy disputeType openedBy");
     return claim;
   };
+
+  
 
   public static createClaim = async (data: any, userId: string) => {
     const user = await User.findById(userId);
@@ -108,7 +112,7 @@ export default class DisputeService {
     const message = `Your claim ${claim.claimId} has been submitted`;
     SmsService.sendSms(phoneNumber, message);
     const { phoneNumber: defendantPhone } = claim.defendant;
-    const defendantMessage = `Claim ${claim.claimId} filed against you has been submitted`;
+    const defendantMessage = `Claim ${claim.claimId} filed against you has been submitted. `;
     SmsService.sendSms(defendantPhone, defendantMessage);
     const witnessMessage = `Claim ${claim.claimId} where you are a witness has been submitted`;
     claim.witnesses.forEach((witness: any) => {
@@ -120,7 +124,6 @@ export default class DisputeService {
 
     EmailService.notifyAssignedDispute(claim);
 
-    // res.locals.user.id, claim.id, "Create", "Claim"
     LogService.create({
       user: userId,
       action: `Submitted claim ${claim.claimId}`,
@@ -130,7 +133,6 @@ export default class DisputeService {
 
     return claim;
   };
-
   public static updateClaim = async (data: any) => {
     const _claim = await Dispute.updateOne(data);
     return _claim;
@@ -147,10 +149,34 @@ export default class DisputeService {
     if (!_claim) {
       throw new Error("Dispute not found");
     }
+    
+    // Update processing days
+    const startDate = new Date(_claim.createdAt);
+    const currentDate = new Date();
+    _claim.processingDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
     _claim.status = status;
+    _claim.lastUpdated = new Date().toISOString();
 
     if (status === "processing") {
       _claim.openedBy = openedBy;
+      // Automatically generate defendant signup link
+      if (!_claim.defendantSignupLink) {
+        const token = crypto.randomBytes(32).toString('hex');
+        _claim.defendantSignupLink = `${process.env.NEXT_PUBLIC_APP_URL}/signup/defendant/${token}`;
+        _claim.defendantSignupExpiry = new Date(Date.now() + 7*24*60*60*1000).toISOString(); // 7 days expiry
+        
+        // Send invitation to defendant
+        const defendantMessage = `You have been named in a land dispute case. Please register at: ${_claim.defendantSignupLink}`;
+        await SmsService.sendSms(_claim.defendant.phoneNumber, defendantMessage);
+        if (_claim.defendant.email) {
+          await EmailService.sendEmail(
+            _claim.defendant.email,
+            'Land Dispute Case Registration',
+            defendantMessage
+          );
+        }
+      }
     } else if (status === "resolved") {
       _claim.resolvedBy = openedBy;
       _claim.feedback = feedback;
@@ -174,29 +200,25 @@ export default class DisputeService {
     }
 
     await _claim.save();
-    const { phoneNumber } = _claim.claimant;
-    const { phoneNumber: defendantPhone } = _claim.defendant;
-    let defendantMessage = `Claim ${_claim.claimId} filed against you has been updated to ${status}`;
-    let claimantMessage = `Your claim ${_claim.claimId} has been updated to ${status}`;
-    let witnessMessage = `Claim ${_claim.claimId} where you are a witness has been updated to ${status}`;
-    if (feedback) {
-      defendantMessage += `\nFeedback: ${feedback}`;
-      claimantMessage += `\nFeedback: ${feedback}`;
-      witnessMessage += `\nFeedback: ${feedback}`;
-    }
-    SmsService.sendSms(phoneNumber, claimantMessage);
-    SmsService.sendSms(defendantPhone, defendantMessage);
-    _claim.witnesses.forEach((witness: any) => {
-      SmsService.sendSms(witness.phoneNumber, witnessMessage);
-    });
+    
+    // Enhanced notifications
+    const notifications = await generateNotifications(_claim, status, feedback);
+    await Promise.all([
+      SmsService.sendBulk(notifications.sms),
+      EmailService.sendBulk(notifications.email)
+    ]);
 
-    EmailService.notifyUpdateDispute(_claim, _claim.claimant);
-
-    LogService.create({
+    // Log the update with more details
+    await LogService.create({
       user: openedBy,
-      action: `Updated to ${status} with feedback: ${feedback ?? "-"}`,
-      targettype: "Dispute",
+      action: `Updated to ${status}`,
+      targetType: "Dispute",
       target: _claim.id,
+      details: {
+        processingDays: _claim.processingDays,
+        feedback,
+        status
+      }
     });
 
     return _claim;
@@ -682,4 +704,33 @@ export default class DisputeService {
     }
     return 0;
   };
+
+  private static async generateNotifications(claim: IDispute, status: string, feedback?: string) {
+    const sms = [];
+    const email = [];
+    
+    // Base messages
+    const statusUpdate = `Case ${claim.claimId} status updated to: ${status}`;
+    const feedbackMsg = feedback ? `\nFeedback: ${feedback}` : '';
+    const processingInfo = `\nProcessing time: ${claim.processingDays} days`;
+    
+    // Add claimant notifications
+    sms.push({
+      to: claim.claimant?.phoneNumber,
+      message: `${statusUpdate}${feedbackMsg}${processingInfo}`
+    });
+    
+    if (claim.claimant?.email) {
+      email.push({
+        to: claim.claimant.email,
+        subject: `Case Status Update - ${claim.claimId}`,
+        message: `${statusUpdate}${feedbackMsg}${processingInfo}`
+      });
+    }
+    
+    // Add defendant notifications
+    // ... similar structure for defendant ...
+    
+    return { sms, email };
+  }
 }

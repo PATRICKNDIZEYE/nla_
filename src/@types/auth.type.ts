@@ -8,7 +8,8 @@ export interface ILevel {
   district: string;
   sector: string;
   // The original Role (This is not stored in the database but in the session)
- accountRole:Role
+  accountRole?: Role;
+  isSwitch?: boolean;
 }
 
 export interface IAuth {

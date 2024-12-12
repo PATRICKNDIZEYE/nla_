@@ -15,6 +15,9 @@ type Props = {
   // Add custom props here
 };
 
+
+
+
 const HomePage: NextPageWithLayout = () => {
   return <Home />;
 };

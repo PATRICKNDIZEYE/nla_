@@ -74,6 +74,12 @@ export interface IDispute {
   overdueDays?: number;
   createdAt: string;
   stampedLetter?: string;
+  submissionDate: string;
+  lastUpdated: string;
+  processingDays: number;
+  defendantSignupLink?: string;
+  defendantSignupExpiry?: string;
+  autoAssignmentStatus?: "pending" | "completed" | "failed";
 }
 
 export interface IAppeal {

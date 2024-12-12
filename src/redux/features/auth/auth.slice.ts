@@ -134,6 +134,8 @@ export const getNidaData = createAsyncThunk(
   }
 );
 
+
+
 export const sendSMS = createAsyncThunk(
   "auth/sms",
   async ({ phone, checkUser }: { phone: string; checkUser?: boolean }) => {
@@ -155,6 +157,8 @@ export const sendSMS = createAsyncThunk(
     }
   }
 );
+
+
 
 export const getParcelInfo = createAsyncThunk(
   "auth/parcel",

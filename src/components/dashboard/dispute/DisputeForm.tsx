@@ -29,6 +29,8 @@ import { useSystemTour } from "@/components/hooks/tour";
 import DisputeSteps from "./DisputeSteps";
 import { useRouter } from "next/router";
 import Secure from "@/utils/helpers/secureLS";
+import axios from "axios";
+import Keys from "@/utils/constants/keys";
 
 const { TextArea } = Input;
 
@@ -45,7 +47,108 @@ const CaseForm: React.FC = () => {
   const dispatch = useAppDispatch();
   const { loading: loadingAuth } = useAppSelector((state) => state.auth);
   const { loading } = useAppSelector((state) => state.dispute);
-  const [land, setLand] = useState<ILandData>();
+  const [land, setLand] = useState<ILandData>({
+    landUseNameKinyarwanda: "Ubuhinzi bw'imyaka",
+    owners: [
+      {
+        fullName: "Jean Mukeshimana",
+        idNo: "1234567890123456",
+        idTypeName: "National ID",
+        countryName: "Rwanda",
+        sharePercentage: "100%",
+      }
+    ],
+    upi: "9/99/99/99/999",
+    area: 2500,
+    rightTypeId: "RT001",
+    landUseTypeId: 2,
+    startTransactionId: "ST001",
+    endTransactionId: null,
+    startLeaseTransactionId: "LT001",
+    startDate: "2023-01-01",
+    isProvisional: true,
+    land_use_type_id: 2,
+    right_type_id: "RT001",
+    landUse: {
+      landUseId: 2,
+      landUseTypeNameKinyarwanda: "Ubuturo",
+      landUseTypeNameEnglish: "Residential",
+      landUseTypeNameFrench: "Résidentiel",
+      endDate: null,
+      leaseTerm: 99,
+    },
+    landUseId: 2,
+    landUseTypeNameKinyarwanda: "Ubuturo bwiza",
+    landUseTypeNameEnglish: "Quality Residential",
+    landUseTypeNameFrench: "Résidence de Qualité",
+    endDate: null,
+    leaseTerm: 50,
+    tenure: {
+      rightTypeId: "RT001",
+      rightTypeName: "Freehold",
+      rightTypeCategory: "Private",
+      rightTypeKind: "Exclusive",
+      isInquiry: false,
+      onCertificate: true,
+    },
+    address:{
+      villageName: "Hello",
+      villageId: "as",
+      cellName: "as",
+      cellId: "asas",
+      sectorName: "asas",
+      sectorId: "asasa",
+      districtName: "asasas",
+      districtId: "asasasas",
+      provinceNameEnglish: "asasas",
+      provinceNameKinyarwanda: "asasasa",
+      provinceNameFrench: "asasas",
+      provinceId: "asasas",
+      string: "asasasas",
+    },
+    rightTypeName: "Freehold",
+    rightTypeCategory: "Private",
+    rightTypeKind: "Exclusive",
+    isInquiry: false,
+    onCertificate: true,
+    inTransaction: false,
+    villageName: "Rugende",
+    villageId: "V001",
+    cellName: "Nyamata",
+    cellId: "C001",
+    sectorName: "Bugesera",
+    sectorId: "S001",
+    districtName: "Bugesera",
+    districtId: "D001",
+    provinceNameEnglish: "Eastern Province",
+    provinceNameKinyarwanda: "Intara y'Iburasirazuba",
+    provinceNameFrench: "Province de l'Est",
+    provinceId: "P001",
+    string: "Extra details about the parcel",
+    parcelLocation: {
+      village: {
+        villageCode: "V001",
+        villageName: "Rugende",
+      },
+      cell: {
+        cellCode: "C001",
+        cellName: "Nyamata",
+      },
+      sector: {
+        sectorCode: "S001",
+        sectorName: "Bugesera",
+      },
+      district: {
+        districtCode: "D001",
+        districtName: "Bugesera",
+      },
+      province: {
+        provinceCode: "P001",
+        provinceName: "Eastern Province",
+      },
+    },
+  }
+  )
   const [secondLand, setSecondLand] = useState<ILandData[]>([]);
 
   const onFinish = async (values: any) => {
@@ -54,7 +157,7 @@ const CaseForm: React.FC = () => {
     try {
       if (!land) {
         const landData = await dispatch(
-          getParcelInfo(values.upiNumber)
+            getParcelInfo(values.upiNumber)
         ).unwrap();
         setLand(landData);
         formData.append("land", JSON.stringify(landData));
@@ -75,12 +178,12 @@ const CaseForm: React.FC = () => {
       try {
         if (!secondLand.length) {
           const lands = await Promise.all(
-            values.secondUPIs.map(async (item: any) => {
-              const data = await dispatch(
-                getParcelInfo(item.secondUPI)
-              ).unwrap();
-              return data;
-            })
+              values.secondUPIs.map(async (item: any) => {
+                const data = await dispatch(
+                    getParcelInfo(item.secondUPI)
+                ).unwrap();
+                return data;
+              })
           );
           setSecondLand(lands);
           formData.append("secondLands", JSON.stringify(lands));
@@ -107,12 +210,12 @@ const CaseForm: React.FC = () => {
 
     try {
       values.defendantDistrict = Address.getDistrict(
-        defendantDistrictValue
+          defendantDistrictValue
       )?.name.toLocaleLowerCase();
       values.defendantSector =
-        Address.getSector(defendantSectorValue)?.name.toLocaleLowerCase();
+          Address.getSector(defendantSectorValue)?.name.toLocaleLowerCase();
       values.defendantCell = Address.getCell(
-        values.defendantCell
+          values.defendantCell
       )?.name.toLocaleLowerCase();
       values.district = land?.districtName?.toLowerCase() ?? "";
 
@@ -133,7 +236,7 @@ const CaseForm: React.FC = () => {
           formData.append("witnesses", JSON.stringify(values[key]));
         } else if (key === "disputeType" && values[key]) {
           const category = disputeCategories.find(
-            (item) => item.value === values[key]
+              (item) => item.value === values[key]
           )?.label as string;
           formData.append("disputeType", category?.toString());
         } else if (values[key]) {
@@ -145,8 +248,26 @@ const CaseForm: React.FC = () => {
         fullName: values.defendantFullName,
         phoneNumber: values.defendantPhone,
       };
+
+      // try {
+      //   const smsText = encodeURIComponent(
+      //       `Hello ${defendant.fullName}, you have a new case. Please follow up.`
+      //   );
+      //   const messageSms = await axios.get(
+      //       `${Keys.SMS_API_URL}?sender=${Keys.SMS_USERNAME}&phoneno=250${defendant.phoneNumber}&text=${smsText}&password=${Keys.SMS_PASSWORD}`
+      //   );
+      //   toast.success(`${t(`${messageSms}` as any)}`);
+      // } catch (error) {
+      //   console.error("SMS sending failed", error);
+      //   toast.error(`${t(`${error}` as any)}`);
+      // }
+
+
+
+
       formData.append("defendant", JSON.stringify(defendant));
       formData.append("userId", user?._id as string);
+
       const { message } = await dispatch(createDispute(formData)).unwrap();
       toast.success(`${t(`${message}` as any)}`);
       onReset();
@@ -156,9 +277,10 @@ const CaseForm: React.FC = () => {
     }
   };
 
+
   const onReset = () => {
     form.resetFields();
-    setLand(undefined);
+    // setLand();
     setSecondLand([]);
     Secure.remove("draft");
     router.push("/dispute");
@@ -242,7 +364,7 @@ const CaseForm: React.FC = () => {
                     disabled={loadingAuth}
                     placeholder={t("Please enter UPI")}
                     onChange={() => {
-                      setLand(undefined);
+                      // setLand();
                       setCurrentStep(0);
                     }}
                   />

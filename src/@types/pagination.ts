@@ -26,6 +26,8 @@ export interface IParams {
 export interface IDataResponse<T> {
   data: T;
   message: string;
+  // defendant: T;
+
 }
 
 export interface TableParams {

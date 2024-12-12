@@ -44,10 +44,10 @@ export const getAllDisputes = createAsyncThunk(
 
 export const getDisputeById = createAsyncThunk(
   "dispute/getDisputeById",
-  async (id: string) => {
+  async (disputeId: string) => {
     try {
       const { data } = await axiosInstance.get<IDataResponse<IDispute>>(
-        `/disputes/${id}`
+        `/disputes/${disputeId}`
       );
       return data;
     } catch (error) {
@@ -79,6 +79,8 @@ export const createDispute = createAsyncThunk(
     }
   }
 );
+
+
 
 export const updateStatus = createAsyncThunk(
   "dispute/updateStatus",

@@ -13,6 +13,7 @@ import { TableParams } from "@/@types/pagination";
 import { FilterValue, SorterResult } from "antd/es/table/interface";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
+import { getEffectiveRole, shouldShowAdminContent, canAccessContent } from "@/utils/helpers/roleCheck";
 
 const { Search } = Input;
 
@@ -48,12 +49,12 @@ const ListInvitations = () => {
   };
 
   const fetchData = () => {
-    if (!user) return;
     dispatch(
       getAllInvitations({
         ...tableParams,
         search: debouncedSearch,
-        userId: user?._id,
+        userId: user?.level?.isSwitch ? user._id : undefined,
+        district: getEffectiveRole(user) === "manager" ? user?.level?.district : undefined,
       })
     );
   };
@@ -108,38 +109,8 @@ const ListInvitations = () => {
       key: "action",
       render: (_, record) => (
         <Space size="middle">
-          {["manager", "admin"].includes(userRole) && (
-            <Popconfirm
-              title={t("Cancel invitation")}
-              description={t("Are you sure to cancel this invitation?")}
-              onConfirm={async () => {
-                try {
-                  const { message } = await dispatch(
-                    cancelInvitation(record._id)
-                  ).unwrap();
-                  toast.success(message);
-                } catch (error: any) {
-                  toast.error(error.message);
-                }
-              }}
-              okText="Yes"
-              cancelText="No"
-              okButtonProps={{
-                loading,
-                disabled: loading,
-                danger: true,
-              }}
-              placement="bottomRight"
-            >
-              <button
-                disabled={record.isCanceled || loading}
-                className={`${
-                  record.isCanceled ? "text-red-500" : "text-brand-green"
-                } disabled:cursor-not-allowed disabled:opacity-50`}
-              >
-                {t(!record.isCanceled ? "Cancel" : "Cancelled")}
-              </button>
-            </Popconfirm>
+          {shouldShowAdminContent(user) && (
+            // Admin/Manager actions
           )}
         </Space>
       ),

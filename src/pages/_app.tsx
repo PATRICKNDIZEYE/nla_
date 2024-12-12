@@ -16,6 +16,7 @@ import Keys from "@/utils/constants/keys";
 import Head from "next/head";
 // import { ConfigProvider } from "antd";
 import theme from "@/theme/themeConfig";
+import { detectLanguage } from '../utils/language';
 
 const ConfigProvider = dynamic(() => import("antd/lib/config-provider"), {
   ssr: false,
@@ -41,7 +42,7 @@ type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
 };
 
-const MyApp = ({ Component, pageProps }: AppPropsWithLayout) => {
+const MyApp = ({ Component, pageProps, router }: AppProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const authRoutes = useMemo(
     () => [
@@ -61,14 +62,18 @@ const MyApp = ({ Component, pageProps }: AppPropsWithLayout) => {
   // const newCaseTour = systemTour.getTour("new-case")?.steps ?? [];
 
   const getLayout = Component.getLayout || ((page) => page);
-  const router = useRouter();
 
+  // Detect language on initial load
   useEffect(() => {
-    const locale = (Secure.get(Keys.LANG_KEY) as string) ?? "en";
-    if (["en", "fr", "rw"].includes(locale)) {
-      router.push(router.asPath, router.asPath, { locale });
+    const detectedLang = detectLanguage(
+      window.navigator.userAgent,
+      window.navigator.languages.join(',')
+    );
+    
+    // Set detected language if not already set
+    if (!router.locale) {
+      router.push(router.pathname, router.asPath, { locale: detectedLang });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

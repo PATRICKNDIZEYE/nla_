@@ -39,6 +39,7 @@ import { useTranslation } from "react-i18next";
 import { useSystemTour } from "@/components/hooks/tour";
 import { useRouter } from "next/router";
 import TableSingleCaseView from "./single/TableSingleCaseView";
+import { getEffectiveRole, shouldShowAdminContent, canAccessContent } from "@/utils/helpers/roleCheck";
 
 const { Search } = Input;
 
@@ -58,7 +59,7 @@ const CaseManagement = () => {
   const [statusForm] = Form.useForm();
   const [appealFrom] = Form.useForm();
   const { data: user } = useAppSelector((state) => state.profile);
-  const userRole = user?.level?.role ?? "user";
+  const effectiveRole = getEffectiveRole(user);
   const params = useSearchParams();
   const { data, loading } = useAppSelector((state) => state.dispute);
   const { search, debouncedSearch, setSearch } = useSearch();
@@ -88,14 +89,13 @@ const CaseManagement = () => {
   };
 
   const fetchData = () => {
-    if (!user) return;
     dispatch(
       getAllDisputes({
         ...tableParams,
         search: debouncedSearch,
         status: tableParams.status ?? params.get("status")?.toString(),
-        userId: user?._id,
-        level: tableParams.level ?? params.get("level")?.toString(),
+        userId: user?.level?.isSwitch ? user._id : undefined,
+        district: effectiveRole === "manager" ? user?.level?.district : undefined,
       })
     );
   };
@@ -487,7 +487,7 @@ const CaseManagement = () => {
       key: "action",
       render: (_, record) => (
         <Space size="middle">
-          {userRole === "user" &&
+          {effectiveRole === "user" &&
             ["resolved", "rejected"].includes(record.status!) && (
               <button
                 disabled={loading || record.level === "nla"}
@@ -498,11 +498,11 @@ const CaseManagement = () => {
                 {record.level === "district" ? "Appeal" : "Appealed"}
               </button>
             )}
-          {["manager", "admin"].includes(userRole) && (
+          {["manager", "admin"].includes(effectiveRole) && (
             <>
               {record.status === "processing" &&
-                ((userRole === "admin" && record.level === "nla") ||
-                  (userRole === "manager" && record.level === "district")) && (
+                ((effectiveRole === "admin" && record.level === "nla") ||
+                  (effectiveRole === "manager" && record.level === "district")) && (
                   <button
                     disabled={loading}
                     onClick={() => onInvite(record)}
@@ -513,8 +513,8 @@ const CaseManagement = () => {
                   </button>
                 )}
               {["open", "appealed"].includes(record.status!) &&
-                ((userRole === "admin" && record.level === "nla") ||
-                  (userRole === "manager" && record.level === "district")) && (
+                ((effectiveRole === "admin" && record.level === "nla") ||
+                  (effectiveRole === "manager" && record.level === "district")) && (
                   <Popconfirm
                     title="Open the dispute"
                     description="Are you sure to process this dispute?"
@@ -539,8 +539,8 @@ const CaseManagement = () => {
                 )}
 
               {record.status === "processing" &&
-                ((userRole === "admin" && record.level === "nla") ||
-                  (userRole === "manager" && record.level === "district")) && (
+                ((effectiveRole === "admin" && record.level === "nla") ||
+                  (effectiveRole === "manager" && record.level === "district")) && (
                   <button
                     disabled={loading}
                     onClick={() => onUpdateStatus("resolved", record._id!)}
@@ -551,8 +551,8 @@ const CaseManagement = () => {
                   </button>
                 )}
               {["open", "appealed"].includes(record.status!) &&
-                ((userRole === "admin" && record.level === "nla") ||
-                  (userRole === "manager" && record.level === "district")) && (
+                ((effectiveRole === "admin" && record.level === "nla") ||
+                  (effectiveRole === "manager" && record.level === "district")) && (
                   <button
                     disabled={loading}
                     onClick={() => onUpdateStatus("rejected", record._id!)}
@@ -564,7 +564,7 @@ const CaseManagement = () => {
                 )}
             </>
           )}
-          {userRole === "user" && (
+          {effectiveRole === "user" && (
             <button
               onClick={onSendEmails}
               className="text-brand-gray hover:underline"
@@ -574,7 +574,7 @@ const CaseManagement = () => {
               {t("Email")}
             </button>
           )}
-          {userRole === "user" &&
+          {effectiveRole === "user" &&
             ["open", "appealed"].includes(record.status!) && (
               <button
                 onClick={() => onUpdateStatus("withdrawn", record._id!)}
@@ -628,7 +628,7 @@ const CaseManagement = () => {
           }}
           defaultValue={params.get("status")?.toString()}
         />
-        {!["manager", "admin"].includes(userRole) && (
+        {!["manager", "admin"].includes(effectiveRole) && (
           <Button
             type="primary"
             className="bg-blue-500"

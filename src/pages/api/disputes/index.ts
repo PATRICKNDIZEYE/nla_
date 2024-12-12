@@ -9,6 +9,7 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const { method } = req;
+  const { userId, district } = req.query;
   await dbConnect();
 
   switch (method) {
@@ -93,14 +94,19 @@ export default async function handler(
 
     case "GET":
       try {
-        const results = await DisputeService.getAllClaims(
-          req.query as QueryParams
-        );
+        // Build filter based on user role and permissions
+        const filter: any = {};
+        
+        if (userId) {
+          filter["claimant._id"] = userId;
+        }
+        
+        if (district) {
+          filter["level.district"] = district;
+        }
 
-        return res.status(200).json({
-          message: "Disputes fetched successfully",
-          ...results,
-        });
+        const disputes = await DisputeService.getAll({ ...req.query, filter });
+        return res.status(200).json(disputes);
       } catch (error: any) {
         return res.status(500).json({ message: error.message });
       }

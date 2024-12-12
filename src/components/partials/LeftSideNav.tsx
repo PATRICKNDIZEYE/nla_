@@ -132,13 +132,13 @@ const LeftSideNav = () => {
             </li>
             <li
               className={`${
-                ["admin", "manager"].includes(user?.level?.role as string)
+                ["admin", "manager"].includes(user?.level?.accountRole!)
                   ? "block"
                   : "hidden"
               }`}
             >
               <Link  href="/report"  className={`${
-                ["admin" , "manager"].includes(user?.level?.role as string)
+                ["admin" , "manager"].includes(user?.level?.accountRole!)
                   ? "block"
                   : "hidden"
               }`}>
@@ -248,7 +248,7 @@ const LeftSideNav = () => {
             </li>
             <li
               className={`${
-                ["admin"].includes(user?.level?.role as string)
+                ["admin"].includes(user?.level?.accountRole!)
                   ? "block"
                   : "hidden"
               }`}
@@ -322,7 +322,7 @@ const LeftSideNav = () => {
             </li>
             <li
               className={`${
-                ["admin"].includes(user?.level?.role as string)
+                ["admin"].includes(user?.level?.accountRole!)
                   ? "block"
                   : "hidden"
               }`}

@@ -4,6 +4,7 @@ import { formatPhoneNumber } from "@/utils/helpers/function";
 import { useTranslation } from "react-i18next";
 import { useAppSelector } from "@/redux/store";
 import Image from "next/image";
+import { getEffectiveRole, canSwitchAccount } from "@/utils/helpers/roles";
 
 const MyProfile = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -11,6 +12,10 @@ const MyProfile = () => {
   const [previewTitle, setPreviewTitle] = useState("");
   const { data: user } = useAppSelector((state) => state.profile);
   const { t } = useTranslation("common");
+
+  const effectiveRole = getEffectiveRole(user);
+  const canSwitch = canSwitchAccount(user);
+
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="bg-white p-6 rounded-md">
@@ -97,7 +102,7 @@ const MyProfile = () => {
             <div>
               <label
                 htmlFor="role"
-                className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray"
+                className="block mb-2 text-sm font-medium text-gray-900"
               >
                 {t("Role")}
               </label>
@@ -105,10 +110,9 @@ const MyProfile = () => {
                 style={{ background: "#E8F6F3" }}
                 id="role"
                 disabled
-                value={user?.level?.role ?? "user"}
-                className="   text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                value={effectiveRole ?? "user"}
+                className="text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
               >
-                <option selected>{t("Choose a role")}</option>
                 <option value="admin">ADMIN</option>
                 <option value="manager">MANAGER</option>
                 <option value="user">USER</option>
@@ -133,7 +137,7 @@ const MyProfile = () => {
             </div>
           </div>
 
-          {!["admin", "manager"].includes(user?.level?.role!) && (
+          {!["admin", "manager"].includes(effectiveRole!) && (
             <>
               <div className="flex items-start mb-6">
                 <div className="flex items-center h-5">
@@ -172,7 +176,7 @@ const MyProfile = () => {
       </div>
       <div
         className={`bg-white  rounded-md p-4 ${
-          ["admin", "manager"].includes(user?.level?.role!) ? "hidden" : "block"
+          ["admin", "manager"].includes(effectiveRole!) ? "hidden" : "block"
         }`}
       >
         <h3 className="text-2xl font-bold ">{t("Deactivate Account")}</h3>
@@ -225,6 +229,14 @@ const MyProfile = () => {
           {t("Deactivate Account")}
         </button>
       </div>
+
+      {canSwitch && (
+        <div className="col-span-2 bg-blue-50 p-4 rounded-md">
+          <p className="text-sm text-blue-600">
+            {t("Currently viewing as")}: {effectiveRole.toUpperCase()}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

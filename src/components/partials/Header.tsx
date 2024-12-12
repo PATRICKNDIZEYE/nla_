@@ -48,21 +48,26 @@ const Header = () => {
   const profile = user?.profile;
 
   // Get Anew Acess token for another account
-  async function switchAccount() {
-    Secure.removeToken();
-    const res = await axios.post("/api/auth/switch", {
-      user: user,
-      newRole: ["admin", "manager"].includes(user.level?.role!)
-        ? "user"
-        : user.level?.accountRole,
-    });
-    if (res.status !== 200) {
-      return;
+  const switchAccount = async () => {
+    try {
+      Secure.removeToken();
+      const res = await axios.post("/api/auth/switch", {
+        user: user,
+        newRole: ["admin", "manager"].includes(user.level?.role!) 
+          ? "user"
+          : user.level?.accountRole,
+        accountRole: user.level?.accountRole || user.level?.role
+      });
+      
+      if (res.status === 200) {
+        const {token} = res.data;
+        Secure.setToken(token);
+        // Force reload to refresh user context
+        router.reload();
+      }
+    } catch (error) {
+      console.error("Error switching account:", error);
     }
-    const {token} = res.data;
-    Secure.setToken(token);
-    router.reload();
-    return;
   }
   return (
     <>

@@ -28,16 +28,21 @@ const initialState: ChatState = {
 
 export const getMessages = createAsyncThunk(
   "chat/getMessages",
-  async (params: { disputeId: string; page?: number; limit?: number }) => {
+  async (params: { disputeId: string; userId: string; page?: number; limit?: number }) => {
     try {
-      const { disputeId, page = 1, limit = 20 } = params;
+      const { disputeId, userId, page = 1, limit = 20 } = params;
+      console.log('Fetching messages with params:', { disputeId, userId, page, limit });
+      
       const { data } = await axiosInstance.get<IPaginatedData<IChat>>(
-        `/chats?disputeId=${disputeId}&page=${page}&limit=${limit}`
+        `/chats?disputeId=${disputeId}&userId=${userId}&page=${page}&limit=${limit}`
       );
+      
+      console.log('Messages fetched:', data.data.length);
       return data;
     } catch (error) {
+      console.error('Error fetching messages:', error);
       const err = error as ResponseError;
-      throw new Error(err.response?.data.message || err.message);
+      throw new Error(err.response?.data.message || 'Failed to fetch messages');
     }
   }
 );
@@ -46,15 +51,18 @@ export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
   async (formData: FormData) => {
     try {
+      console.log('Sending message...');
       const { data } = await axiosInstance.post("/chats", formData, {
         headers: {
           "Content-Type": "multipart/form-data"
         }
       });
+      console.log('Message sent successfully:', data);
       return data;
     } catch (error) {
+      console.error('Error sending message:', error);
       const err = error as ResponseError;
-      throw new Error(err.response?.data.message || err.message);
+      throw new Error(err.response?.data.message || 'Failed to send message');
     }
   }
 );
@@ -92,10 +100,12 @@ const chatSlice = createSlice({
     clearMessages: (state) => {
       state.messages = [];
       state.pagination = initialState.pagination;
+      state.error = null;
     },
     addMessage: (state, action) => {
       state.messages.unshift(action.payload);
       state.pagination.totalItems += 1;
+      state.error = null;
     }
   },
   extraReducers: (builder) => {
@@ -108,10 +118,12 @@ const chatSlice = createSlice({
       state.loading = false;
       state.messages = payload.data;
       state.pagination = payload.pagination;
+      state.error = null;
     });
     builder.addCase(getMessages.rejected, (state, { error }) => {
       state.loading = false;
       state.error = error.message || "Failed to fetch messages";
+      console.error('Failed to fetch messages:', error);
     });
 
     // Send Message
@@ -121,12 +133,14 @@ const chatSlice = createSlice({
     });
     builder.addCase(sendMessage.fulfilled, (state, { payload }) => {
       state.loading = false;
-      state.messages.unshift(payload.data);
+      state.messages.unshift(payload);
       state.pagination.totalItems += 1;
+      state.error = null;
     });
     builder.addCase(sendMessage.rejected, (state, { error }) => {
       state.loading = false;
       state.error = error.message || "Failed to send message";
+      console.error('Failed to send message:', error);
     });
 
     // Mark Messages as Read

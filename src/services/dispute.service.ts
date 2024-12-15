@@ -130,11 +130,56 @@ export default class DisputeService {
 
   
   public static getById = async (disputeId: string, options: object = {}) => {
-    const claim = await Dispute.findOne({
-      ...(Number(disputeId) ? { claimId: disputeId } : { _id: disputeId }),
-      ...options,
-    }).populate("claimant resolvedBy disputeType openedBy");
-    return claim;
+    try {
+      console.log('Getting dispute by ID:', disputeId);
+      
+      const claim = await Dispute.findOne({
+        ...(Number(disputeId) ? { claimId: disputeId } : { _id: disputeId }),
+        ...options,
+      })
+      .populate({
+        path: 'claimant',
+        select: 'profile phoneNumber nationalId email level _id'
+      })
+      .populate({
+        path: 'resolvedBy',
+        select: 'profile level _id'
+      })
+      .populate({
+        path: 'openedBy',
+        select: 'profile level _id'
+      })
+      .populate('disputeType')
+      .lean();
+
+      if (!claim) {
+        console.log('No dispute found with ID:', disputeId);
+        return null;
+      }
+
+      console.log('Found dispute:', {
+        id: claim._id,
+        claimantId: claim.claimant?._id,
+        defendantId: claim.defendant?._id,
+        openedById: claim.openedBy?._id,
+        resolvedById: claim.resolvedBy?._id,
+        status: claim.status
+      });
+
+      // Ensure defendant data is properly structured
+      if (claim.defendant) {
+        claim.defendant = {
+          ...claim.defendant,
+          _id: claim.defendant._id || claim.defendant.id || undefined,
+          fullName: claim.defendant.fullName || `${claim.defendant.ForeName || ''} ${claim.defendant.Surnames || ''}`.trim()
+        };
+      }
+
+      return claim;
+    } catch (error) {
+      console.error('Error getting dispute by ID:', error);
+      throw error;
+    }
   };
 
   

@@ -19,11 +19,18 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
   const [newMessage, setNewMessage] = useState('');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
-  const { messages, loading } = useSelector((state: RootState) => state.chat);
+  const { messages, loading, error } = useSelector((state: RootState) => state.chat);
 
   useEffect(() => {
-    dispatch(getMessages({ disputeId }) as any);
-  }, [dispatch, disputeId]);
+    console.log('Fetching messages with params:', {
+      disputeId,
+      userId: currentUserId
+    });
+    dispatch(getMessages({ 
+      disputeId,
+      userId: currentUserId
+    }) as any);
+  }, [dispatch, disputeId, currentUserId]);
 
   useEffect(() => {
     // Mark unread messages as read
@@ -45,7 +52,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
     if (!newMessage.trim() && fileList.length === 0) return;
 
     try {
-      console.log('Preparing to send message');
+      console.log('Preparing to send message with data:', {
+        disputeId,
+        currentUserId,
+        receiverId,
+        messageLength: newMessage.length,
+        attachmentsCount: fileList.length
+      });
       
       // Validate required fields
       if (!disputeId || !currentUserId || !receiverId) {
@@ -58,21 +71,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
       formData.append('disputeId', disputeId);
       formData.append('senderId', currentUserId);
       formData.append('receiverId', receiverId);
-      formData.append('message', newMessage);
+      formData.append('message', newMessage.trim());
 
       // Append files if any
       fileList.forEach((file) => {
         if (file.originFileObj) {
           formData.append('attachments', file.originFileObj);
         }
-      });
-
-      console.log('Sending message with form data:', {
-        disputeId,
-        senderId: currentUserId,
-        receiverId,
-        messageLength: newMessage.length,
-        attachmentsCount: fileList.length
       });
 
       await dispatch(sendMessage(formData) as any);
@@ -85,6 +90,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
       message.error(error.message || 'Failed to send message');
     }
   };
+
+  // Show error message if there's an error
+  useEffect(() => {
+    if (error) {
+      message.error(error);
+    }
+  }, [error]);
 
   const handleFileChange = ({ fileList: newFileList }: any) => {
     setFileList(newFileList);

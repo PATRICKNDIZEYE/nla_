@@ -13,8 +13,13 @@ export default class ChatService {
       const page = Number(params?.page || 1);
       const limit = Number(params?.limit || 20);
 
+      // Build query to get messages where user is either sender or receiver
       const query = {
-        disputeId: new mongoose.Types.ObjectId(disputeId)
+        disputeId: new mongoose.Types.ObjectId(disputeId),
+        $or: [
+          { sender: params?.userId ? new mongoose.Types.ObjectId(params.userId) : null },
+          { receiver: params?.userId ? new mongoose.Types.ObjectId(params.userId) : null }
+        ]
       };
 
       console.log('Query:', JSON.stringify(query));

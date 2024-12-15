@@ -11,7 +11,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 export const getAllInvitations = createAsyncThunk(
   "invitation/getAllInvitations",
-  async (params: TableParams) => {
+  async (params: TableParams & { dateFrom?: string; dateTo?: string; district?: string }) => {
     try {
       let query = "/invitations";
       if (params) {
@@ -21,6 +21,15 @@ export const getAllInvitations = createAsyncThunk(
         }
         if (params.userId) {
           query += `&userId=${params.userId}`;
+        }
+        if (params.dateFrom) {
+          query += `&dateFrom=${params.dateFrom}`;
+        }
+        if (params.dateTo) {
+          query += `&dateTo=${params.dateTo}`;
+        }
+        if (params.district) {
+          query += `&district=${params.district}`;
         }
       }
       const { data } = await axiosInstance.get<IPaginatedData<IInvitation>>(
@@ -73,6 +82,83 @@ export const cancelInvitation = createAsyncThunk(
   }
 );
 
+export const generateInvitationLetter = createAsyncThunk(
+  "invitation/generateLetter",
+  async (params: { 
+    invitationId: string; 
+    letterType: 'first' | 'reminder' | 'final';
+    meetingDate: string;
+    venue: string;
+    additionalNotes?: string;
+  }) => {
+    try {
+      const { data } = await axiosInstance.post<IDataResponse<{ letterUrl: string }>>(
+        `/invitations/${params.invitationId}/letter`,
+        params
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const assignDefendant = createAsyncThunk(
+  "invitation/assignDefendant",
+  async (params: { invitationId: string }) => {
+    try {
+      const { data } = await axiosInstance.post<IDataResponse<IInvitation>>(
+        `/invitations/${params.invitationId}/assign-defendant`
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const shareDocuments = createAsyncThunk(
+  "invitation/shareDocuments",
+  async (params: { 
+    invitationId: string;
+    documents: File[];
+    recipientType: string[];
+    message?: string;
+  }) => {
+    try {
+      const formData = new FormData();
+      params.documents.forEach((file) => {
+        formData.append('documents', file);
+      });
+      params.recipientType.forEach((type) => {
+        formData.append('recipientType', type);
+      });
+      if (params.message) {
+        formData.append('message', params.message);
+      }
+
+      const { data } = await axiosInstance.post<IDataResponse<{ success: boolean }>>(
+        `/invitations/${params.invitationId}/share-documents`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
 const initialState = initialPaginatedState<IInvitation>();
 
 const invitationSlice = createSlice({
@@ -115,6 +201,36 @@ const invitationSlice = createSlice({
       });
     });
     builder.addCase(cancelInvitation.rejected, (state) => {
+      state.loading = false;
+    });
+    builder.addCase(generateInvitationLetter.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(generateInvitationLetter.fulfilled, (state) => {
+      state.loading = false;
+    });
+    builder.addCase(generateInvitationLetter.rejected, (state) => {
+      state.loading = false;
+    });
+    builder.addCase(assignDefendant.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(assignDefendant.fulfilled, (state, action) => {
+      state.loading = false;
+      state.data.data = state.data.data.map((item) =>
+        item._id === action.payload.data._id ? action.payload.data : item
+      );
+    });
+    builder.addCase(assignDefendant.rejected, (state) => {
+      state.loading = false;
+    });
+    builder.addCase(shareDocuments.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(shareDocuments.fulfilled, (state) => {
+      state.loading = false;
+    });
+    builder.addCase(shareDocuments.rejected, (state) => {
       state.loading = false;
     });
   },

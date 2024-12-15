@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ConfigProvider, Form, Input, Modal, Select, Table, Tag } from "antd";
-import { EditOutlined } from "@ant-design/icons";
+import { ConfigProvider, Form, Input, Modal, Select, Table, Tag, Space, Tooltip, Badge, Button, Popconfirm } from "antd";
+import { EditOutlined, LockOutlined, UnlockOutlined, SwapOutlined } from "@ant-design/icons";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import { IAuthRegister } from "@/@types/auth.type";
-import { changeUserLevel, getAllUsers } from "@/redux/features/user/user.slice";
+import { changeUserLevel, getAllUsers, getCaseCounts } from "@/redux/features/user/user.slice";
 import Link from "next/link";
 import { formatPhoneNumber } from "@/utils/helpers/function";
 import { TableParams } from "@/@types/pagination";
@@ -14,6 +14,12 @@ import { useSearch } from "@/components/hooks/search";
 import { useTranslation } from "react-i18next";
 import Address from "@/utils/lib/address";
 import { toast } from "react-toastify";
+import {
+  updateUser,
+  suspendAccount,
+  reactivateAccount,
+  switchAccount,
+} from "@/redux/features/user/user.slice";
 
 const { Search } = Input;
 
@@ -26,6 +32,7 @@ const ListUsers: React.FC = () => {
   const roleValue = Form.useWatch("role", form);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
 
   const { t } = useTranslation("common");
 
@@ -71,6 +78,78 @@ const ListUsers: React.FC = () => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(tableParams), debouncedSearch]);
+
+  useEffect(() => {
+    if (data.data.length > 0) {
+      // Fetch case counts for all users
+      data.data.forEach(user => {
+        dispatch(getCaseCounts(user._id));
+      });
+    }
+  }, [data.data, dispatch]);
+
+  const handleSuspend = async (values: { reason: string }) => {
+    try {
+      await dispatch(
+        suspendAccount({
+          userId: current?._id!,
+          reason: values.reason,
+        })
+      ).unwrap();
+      toast.success(t("Account suspended successfully"));
+      setIsSuspendModalOpen(false);
+      form.resetFields();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleReactivate = async (userId: string) => {
+    try {
+      await dispatch(reactivateAccount(userId)).unwrap();
+      toast.success(t("Account reactivated successfully"));
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleSwitchRole = async (userId: string, currentRole: string) => {
+    try {
+      const targetRole = currentRole === 'manager' ? 'user' : 'manager';
+      await dispatch(
+        switchAccount({
+          userId,
+          targetRole,
+        })
+      ).unwrap();
+      toast.success(t("Account role switched successfully"));
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleUpdateRole = async (values: any) => {
+    try {
+      await dispatch(
+        updateUser({
+          ...current!,
+          level: {
+            role: values.role,
+            district: values.district,
+          },
+        })
+      ).unwrap();
+      toast.success(t("Role updated successfully"));
+      setIsModalOpen(false);
+      form.resetFields();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const { caseCounts } = useAppSelector(state => ({
+    caseCounts: state.user?.caseCounts || {}
+  }));
 
   const columns: ColumnsType<IAuthRegister> = [
     {
@@ -151,26 +230,105 @@ const ListUsers: React.FC = () => {
         </Tag>
       ),
     },
-  ];
+    {
+      title: t("Status"),
+      key: "status",
+      render: (_, record: IAuthRegister) => (
+        <Tag color={record.accountStatus === 'active' ? 'green' : 'red'}>
+          {record.accountStatus?.toUpperCase()}
+        </Tag>
+      ),
+    },
+    {
+      title: t("Cases"),
+      key: "cases",
+      render: (_, record) => {
+        const counts = caseCounts[record._id] || {};
+        
+        if (!Object.keys(counts).length) {
+          return <span>-</span>;
+        }
 
-  const handleFinish = async (values: any) => {
-    try {
-      const district = Address.getDistrict(values.district);
-      if (district) {
-        values.district = district.name;
-      }
-      const { message } = await dispatch(
-        changeUserLevel({ ...values, userId: current?._id })
-      ).unwrap();
-      toast.success(message);
-      setIsModalOpen(false);
-      form.resetFields();
-      setCurrent(null);
-    } catch (error: any) {
-      const message = error?.response?.data?.message;
-      toast.error(message);
-    }
-  };
+        const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+        return (
+          <div>
+            <Badge count={total} overflowCount={999} style={{ backgroundColor: '#52c41a' }} />
+            <div className="mt-2">
+              {Object.entries(counts).map(([status, count]) => (
+                <div key={status} className="text-xs text-gray-500 capitalize">
+                  {status}: {count}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: t("Actions"),
+      key: "action",
+      render: (_, record: IAuthRegister) => (
+        <Space size="middle">
+          <Tooltip title={t("Change Role")}>
+            <Button
+              type="link"
+              onClick={() => {
+                setCurrent(record);
+                setIsModalOpen(true);
+                form.setFieldsValue({
+                  role: record.level?.role,
+                  district: record.level?.district,
+                });
+              }}
+            >
+              {t("Change Role")}
+            </Button>
+          </Tooltip>
+
+          {record.level?.role === 'manager' && (
+            <Tooltip title={t("Switch Account")}>
+              <Button
+                type="link"
+                icon={<SwapOutlined />}
+                onClick={() => handleSwitchRole(record._id!, record.level?.role!)}
+              >
+                {t("Switch Role")}
+              </Button>
+            </Tooltip>
+          )}
+
+          {record.accountStatus === 'active' ? (
+            <Tooltip title={t("Suspend Account")}>
+              <Button
+                type="link"
+                danger
+                icon={<LockOutlined />}
+                onClick={() => {
+                  setCurrent(record);
+                  setIsSuspendModalOpen(true);
+                }}
+              >
+                {t("Suspend")}
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip title={t("Reactivate Account")}>
+              <Popconfirm
+                title={t("Are you sure you want to reactivate this account?")}
+                onConfirm={() => handleReactivate(record._id!)}
+                okText={t("Yes")}
+                cancelText={t("No")}
+              >
+                <Button type="link" icon={<UnlockOutlined />}>
+                  {t("Reactivate")}
+                </Button>
+              </Popconfirm>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <>
@@ -238,7 +396,7 @@ const ListUsers: React.FC = () => {
           layout="vertical"
           requiredMark
           form={form}
-          onFinish={handleFinish}
+          onFinish={handleUpdateRole}
         >
           <Form.Item
             name="role"
@@ -292,6 +450,31 @@ const ListUsers: React.FC = () => {
               </Form.Item>
             </>
           ) : null}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={t("Suspend Account")}
+        open={isSuspendModalOpen}
+        onOk={() => form.submit()}
+        onCancel={() => setIsSuspendModalOpen(false)}
+        okButtonProps={{ danger: true }}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSuspend}
+        >
+          <Form.Item
+            name="reason"
+            label={t("Suspension Reason")}
+            rules={[
+              { required: true, message: t("Please provide suspension reason") },
+              { min: 10, message: t("Reason must be at least 10 characters") },
+            ]}
+          >
+            <Input.TextArea rows={4} />
+          </Form.Item>
         </Form>
       </Modal>
     </>

@@ -16,6 +16,10 @@ export interface Users extends mongoose.Document {
   status: string;
   createdAt?: string;
   updatedAt?: string;
+  accountStatus: string;
+  suspendedAt: Date;
+  suspendedBy: mongoose.Types.ObjectId;
+  suspensionReason: string;
 }
 
 const UserSchema = new mongoose.Schema({
@@ -65,6 +69,24 @@ const UserSchema = new mongoose.Schema({
     required: false,
     default: "active",
   },
+  accountStatus: {
+    type: String,
+    enum: ['active', 'suspended'],
+    default: 'active'
+  },
+  suspendedAt: {
+    type: Date,
+    default: null
+  },
+  suspendedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  suspensionReason: {
+    type: String,
+    default: null
+  }
 });
 
 UserSchema.set("timestamps", true);

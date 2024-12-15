@@ -9,6 +9,7 @@ import {
 } from "@/@types/auth.type";
 import { IDataResponse } from "@/@types/pagination";
 import { IProfile } from "@/@types/profile.type";
+import Secure from "@/utils/helpers/secureLS";
 
 export const authRegister = createAsyncThunk(
   "auth/register",
@@ -134,8 +135,6 @@ export const getNidaData = createAsyncThunk(
   }
 );
 
-
-
 export const sendSMS = createAsyncThunk(
   "auth/sms",
   async ({ phone, checkUser }: { phone: string; checkUser?: boolean }) => {
@@ -158,8 +157,6 @@ export const sendSMS = createAsyncThunk(
   }
 );
 
-
-
 export const getParcelInfo = createAsyncThunk(
   "auth/parcel",
   async (parcelId: string) => {
@@ -167,6 +164,44 @@ export const getParcelInfo = createAsyncThunk(
       const { data } = await axiosInstance.post<ILandData>(`/land`, {
         parcelId,
       });
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const requestOTP = createAsyncThunk(
+  "auth/requestOTP",
+  async (params: { userId: string; method: 'sms' | 'email' | 'both' }) => {
+    try {
+      const { data } = await axiosInstance.post<IDataResponse<{ success: boolean }>>(
+        `/users/${params.userId}/otp`,
+        {
+          method: params.method,
+        }
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
+export const verifyOTP = createAsyncThunk(
+  "auth/verifyOTP",
+  async (params: { userId: string; otp: string }) => {
+    try {
+      const { data } = await axiosInstance.put<IDataResponse<{ success: boolean }>>(
+        `/users/${params.userId}/otp`,
+        {
+          otp: params.otp,
+        }
+      );
       return data;
     } catch (error) {
       const err = error as ResponseError;
@@ -289,6 +324,36 @@ const authSlice = createSlice({
     builder.addCase(resetPassword.rejected, (state, action) => {
       state.error = action.error.message;
       state.loading = false;
+    });
+
+    builder.addCase(requestOTP.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(requestOTP.fulfilled, (state) => {
+      state.loading = false;
+    });
+    builder.addCase(requestOTP.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || null;
+    });
+
+    builder.addCase(verifyOTP.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(verifyOTP.fulfilled, (state) => {
+      state.loading = false;
+      state.isAuthenticated = true;
+      state.otpVerified = true;
+      if (state.user) {
+        Secure.setToken(state.user._id);
+        Secure.setUser(state.user);
+      }
+    });
+    builder.addCase(verifyOTP.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || null;
     });
   },
 });

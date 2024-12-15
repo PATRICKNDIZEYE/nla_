@@ -3,13 +3,13 @@ import dbConnect from "@/lib/dbConnect";
 import { parseForm } from "@/lib/libForm";
 import DisputeService from "@/services/dispute.service";
 import { NextApiRequest, NextApiResponse } from "next";
+import User from "@/models/User";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   const { method } = req;
-  const { userId, district } = req.query;
   await dbConnect();
 
   switch (method) {
@@ -38,16 +38,6 @@ export default async function handler(
           (f) => `/uploads/${f.newFilename}`
         );
 
-        // const invitationProof = files.invitationProof?.map(
-        //   (f) => `/uploads/${f.newFilename}`
-        // );
-
-        // if (!invitationProof?.length) {
-        //   return res.status(400).json({
-        //     message: "Please upload invitation proof",
-        //   });
-        // }
-
         const otherDocuments = files.otherDocuments?.map(
           (f) => `/uploads/${f.newFilename}`
         );
@@ -56,7 +46,6 @@ export default async function handler(
           ...fields,
           letter: fileLetter[0],
           sectorReport: fileSectorReport[0],
-          // invitationProof: invitationProof[0],
           deedPlan: deedPlan ? deedPlan[0] : null,
           otherDocuments: otherDocuments ? otherDocuments : [],
         };
@@ -94,20 +83,49 @@ export default async function handler(
 
     case "GET":
       try {
-        // Build filter based on user role and permissions
+        const { userId, district, status, isSwitch, role, ...restQuery } = req.query;
+        console.log('API Request Query:', req.query);
+        
         const filter: any = {};
         
-        if (userId) {
-          filter["claimant._id"] = userId;
+        // Use role from query params (session) instead of querying database
+        console.log('User role from session:', role);
+        
+        // Only filter by userId if not admin and not in switch mode
+        if (userId && !isSwitch && role !== 'admin') {
+          console.log('Adding user filter:', userId);
+          filter.claimant = userId;
         }
         
         if (district) {
-          filter["level.district"] = district;
+          console.log('Adding district filter:', district);
+          filter.district = district.toString().toLowerCase();
         }
 
-        const disputes = await DisputeService.getAll({ ...req.query, filter });
+        if (status) {
+          console.log('Adding status filter:', status);
+          filter.status = status;
+        }
+
+        console.log('Final filter:', filter);
+        console.log('Rest query params:', restQuery);
+
+        const disputes = await DisputeService.getAllClaims({ 
+          ...restQuery,
+          userId: userId?.toString(),
+          role: role?.toString(),
+          filter 
+        });
+        
+        console.log('Disputes found:', {
+          count: disputes.data.length,
+          totalItems: disputes.pagination.totalItems,
+          userRole: role
+        });
+
         return res.status(200).json(disputes);
       } catch (error: any) {
+        console.error('Error in GET /disputes:', error);
         return res.status(500).json({ message: error.message });
       }
     default:

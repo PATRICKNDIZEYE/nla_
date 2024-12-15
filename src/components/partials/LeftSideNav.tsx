@@ -37,6 +37,9 @@ const LeftSideNav = () => {
     }
   }, 1);
 
+  const isDisputeActive = router.asPath === '/dispute' || 
+                         router.asPath.startsWith('/dispute/');
+
   return (
     <>
       <aside className="bg-white -translate-x-80 fixed inset-0 z-50 border border-r-gray h-[calc(100vh)] w-72  transition-transform duration-300 xl:translate-x-0">
@@ -93,9 +96,9 @@ const LeftSideNav = () => {
               <Link className="" href="/dispute">
                 <button
                   className={`${
-                    router.asPath.includes("/dispute")
+                    isDisputeActive
                       ? "middle none font-sans font-bold center transition-all disabled:opacity-50 disabled:shadow-none disabled:pointer-events-none text-xs py-3 rounded-l-full bg-gradient-to-tr from-blue-600 to-blue-400 text-white shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/40 active:opacity-[0.85] w-full flex items-center gap-4 px-4 capitalize"
-                      : "middle none font-sans font-bold center transition-all disabled:opacity-50  disabled:pointer-events-none text-xs py-3 rounded-l-full  text-black    hover:bg-blue-500/10 active:opacity-[0.85] w-full flex items-center gap-4 px-4 capitalize"
+                      : "middle none font-sans font-bold center transition-all disabled:opacity-50 disabled:pointer-events-none text-xs py-3 rounded-l-full text-black hover:bg-blue-500/10 active:opacity-[0.85] w-full flex items-center gap-4 px-4 capitalize"
                   }`}
                   type="button"
                   ref={disputeManagementRef}
@@ -132,13 +135,13 @@ const LeftSideNav = () => {
             </li>
             <li
               className={`${
-                ["admin", "manager"].includes(user?.level?.accountRole!)
+                ["admin", "manager"].includes(user?.level?.role as string)
                   ? "block"
                   : "hidden"
               }`}
             >
               <Link  href="/report"  className={`${
-                ["admin" , "manager"].includes(user?.level?.accountRole!)
+                ["admin" , "manager"].includes(user?.level?.role as string)
                   ? "block"
                   : "hidden"
               }`}>
@@ -248,7 +251,7 @@ const LeftSideNav = () => {
             </li>
             <li
               className={`${
-                ["admin"].includes(user?.level?.accountRole!)
+                ["admin"].includes(user?.level?.role as string)
                   ? "block"
                   : "hidden"
               }`}
@@ -322,7 +325,7 @@ const LeftSideNav = () => {
             </li>
             <li
               className={`${
-                ["admin"].includes(user?.level?.accountRole!)
+                ["admin"].includes(user?.level?.role as string)
                   ? "block"
                   : "hidden"
               }`}

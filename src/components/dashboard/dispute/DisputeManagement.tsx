@@ -39,7 +39,6 @@ import { useTranslation } from "react-i18next";
 import { useSystemTour } from "@/components/hooks/tour";
 import { useRouter } from "next/router";
 import TableSingleCaseView from "./single/TableSingleCaseView";
-import { getEffectiveRole, shouldShowAdminContent, canAccessContent } from "@/utils/helpers/roleCheck";
 
 const { Search } = Input;
 
@@ -59,11 +58,14 @@ const CaseManagement = () => {
   const [statusForm] = Form.useForm();
   const [appealFrom] = Form.useForm();
   const { data: user } = useAppSelector((state) => state.profile);
-  const effectiveRole = getEffectiveRole(user);
+  const userRole = user?.level?.role ?? "user";
   const params = useSearchParams();
-  const { data, loading } = useAppSelector((state) => state.dispute);
+  const { data, loading, error } = useAppSelector((state) => state.dispute);
   const { search, debouncedSearch, setSearch } = useSearch();
   const dispatch = useAppDispatch();
+
+  console.log('Current Redux State:', { data, loading, error });
+  console.log('Current User:', { user, userRole });
 
   const [tableParams, setTableParams] = useState<TableParams>({
     pagination: {
@@ -77,6 +79,7 @@ const CaseManagement = () => {
     filters: Record<string, FilterValue>,
     sorter: SorterResult<IDispute>
   ) => {
+    console.log('Table params changing:', { pagination, filters, sorter });
     setTableParams({
       pagination,
       filters,
@@ -89,21 +92,57 @@ const CaseManagement = () => {
   };
 
   const fetchData = () => {
-    dispatch(
-      getAllDisputes({
-        ...tableParams,
-        search: debouncedSearch,
-        status: tableParams.status ?? params.get("status")?.toString(),
-        userId: user?.level?.isSwitch ? user._id : undefined,
-        district: effectiveRole === "manager" ? user?.level?.district : undefined,
+    if (!user) {
+      console.log('No user found, skipping fetch');
+      return;
+    }
+    const fetchParams = {
+      ...tableParams,
+      search: debouncedSearch,
+      status: tableParams.status ?? params.get("status")?.toString(),
+      userId: user?._id,
+      role: userRole,
+      level: tableParams.level ?? params.get("level")?.toString(),
+    };
+    console.log('Fetching disputes with params:', fetchParams);
+    
+    dispatch(getAllDisputes(fetchParams))
+      .then((result: any) => {
+        console.log('Disputes fetch result:', result);
+        console.log('Payload data:', result.payload?.data);
+        if (result.error) {
+          console.error('Error in result:', result.error);
+          toast.error(t('Failed to fetch disputes'));
+        }
       })
-    );
+      .catch((error) => {
+        console.error('Error fetching disputes:', error);
+        toast.error(t('Failed to fetch disputes'));
+      });
   };
 
   useEffect(() => {
+    console.log('Effect triggered with:', {
+      tableParams,
+      debouncedSearch,
+      userId: user?._id
+    });
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(tableParams), debouncedSearch, user]);
+
+  useEffect(() => {
+    if (user?.level?.isSwitch !== undefined) {
+      console.log('Switch mode changed, clearing disputes');
+      dispatch(clearDispute());
+      setTableParams((prev) => ({
+        ...prev,
+        pagination: {
+          ...prev.pagination,
+          current: 1,
+        },
+      }));
+    }
+  }, [user?.level?.isSwitch, dispatch]);
 
   const onUpdateStatus = (
     status: "processing" | "rejected" | "resolved" | "withdrawn",
@@ -487,7 +526,7 @@ const CaseManagement = () => {
       key: "action",
       render: (_, record) => (
         <Space size="middle">
-          {effectiveRole === "user" &&
+          {userRole === "user" &&
             ["resolved", "rejected"].includes(record.status!) && (
               <button
                 disabled={loading || record.level === "nla"}
@@ -498,11 +537,11 @@ const CaseManagement = () => {
                 {record.level === "district" ? "Appeal" : "Appealed"}
               </button>
             )}
-          {["manager", "admin"].includes(effectiveRole) && (
+          {["manager", "admin"].includes(userRole) && (
             <>
               {record.status === "processing" &&
-                ((effectiveRole === "admin" && record.level === "nla") ||
-                  (effectiveRole === "manager" && record.level === "district")) && (
+                ((userRole === "admin" && record.level === "nla") ||
+                  (userRole === "manager" && record.level === "district")) && (
                   <button
                     disabled={loading}
                     onClick={() => onInvite(record)}
@@ -513,8 +552,8 @@ const CaseManagement = () => {
                   </button>
                 )}
               {["open", "appealed"].includes(record.status!) &&
-                ((effectiveRole === "admin" && record.level === "nla") ||
-                  (effectiveRole === "manager" && record.level === "district")) && (
+                ((userRole === "admin" && record.level === "nla") ||
+                  (userRole === "manager" && record.level === "district")) && (
                   <Popconfirm
                     title="Open the dispute"
                     description="Are you sure to process this dispute?"
@@ -539,8 +578,8 @@ const CaseManagement = () => {
                 )}
 
               {record.status === "processing" &&
-                ((effectiveRole === "admin" && record.level === "nla") ||
-                  (effectiveRole === "manager" && record.level === "district")) && (
+                ((userRole === "admin" && record.level === "nla") ||
+                  (userRole === "manager" && record.level === "district")) && (
                   <button
                     disabled={loading}
                     onClick={() => onUpdateStatus("resolved", record._id!)}
@@ -551,8 +590,8 @@ const CaseManagement = () => {
                   </button>
                 )}
               {["open", "appealed"].includes(record.status!) &&
-                ((effectiveRole === "admin" && record.level === "nla") ||
-                  (effectiveRole === "manager" && record.level === "district")) && (
+                ((userRole === "admin" && record.level === "nla") ||
+                  (userRole === "manager" && record.level === "district")) && (
                   <button
                     disabled={loading}
                     onClick={() => onUpdateStatus("rejected", record._id!)}
@@ -564,7 +603,7 @@ const CaseManagement = () => {
                 )}
             </>
           )}
-          {effectiveRole === "user" && (
+          {userRole === "user" && (
             <button
               onClick={onSendEmails}
               className="text-brand-gray hover:underline"
@@ -574,7 +613,7 @@ const CaseManagement = () => {
               {t("Email")}
             </button>
           )}
-          {effectiveRole === "user" &&
+          {userRole === "user" &&
             ["open", "appealed"].includes(record.status!) && (
               <button
                 onClick={() => onUpdateStatus("withdrawn", record._id!)}
@@ -617,6 +656,7 @@ const CaseManagement = () => {
         />
         <StatusFilter
           onChange={(value) => {
+            console.log('Status filter changed:', value);
             setTableParams((prev) => ({
               ...prev,
               status: value,
@@ -628,7 +668,7 @@ const CaseManagement = () => {
           }}
           defaultValue={params.get("status")?.toString()}
         />
-        {!["manager", "admin"].includes(effectiveRole) && (
+        {!["manager", "admin"].includes(userRole) && (
           <Button
             type="primary"
             className="bg-blue-500"
@@ -651,13 +691,14 @@ const CaseManagement = () => {
       >
         <Table
           columns={columns}
-          rowKey={(record) => `${record._id}`}
+          rowKey={(record) => record._id}
           loading={loading}
+          dataSource={data?.data || []}
           pagination={{
             position: ["none", "bottomRight"],
             pageSize: tableParams.pagination?.pageSize,
             current: tableParams.pagination?.current,
-            total: data.pagination.totalItems,
+            total: data?.pagination?.totalItems || 0,
             showTotal: (total, range) =>
               `${range[0]}-${range[1]} ${t("of")} ${total} ${t("disputes")}`,
             onChange(page, pageSize) {
@@ -668,17 +709,32 @@ const CaseManagement = () => {
               );
             },
           }}
-          dataSource={data.data}
           scroll={{ x: 1200 }}
           className="whitespace-nowrap"
           expandable={defaultExpandable}
+          locale={{
+            emptyText: loading ? t('Loading...') : error ? t('Error loading disputes') : t('No disputes found')
+          }}
         />
       </ConfigProvider>
-      {/* <Tour
-        open={showTour}
-        onClose={() => setShowTour(false)}
-        steps={systemTour.getTour("new-case")?.steps as any}
-      /> */}
+      {error && (
+        <div className="text-red-500 mt-4">
+          {t('Error')}: {error}
+        </div>
+      )}
+      <div className="mt-4 p-4 bg-gray-100 rounded">
+        <h3 className="font-bold mb-2">Debug Info:</h3>
+        <pre className="whitespace-pre-wrap">
+          {JSON.stringify({
+            loading,
+            error,
+            dataLength: data?.data?.length,
+            totalItems: data?.pagination?.totalItems,
+            userRole,
+            tableParams
+          }, null, 2)}
+        </pre>
+      </div>
     </>
   );
 };

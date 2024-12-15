@@ -11,8 +11,9 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 export const getAllDisputes = createAsyncThunk(
   "dispute/getAllDisputes",
-  async (params: TableParams) => {
+  async (params: TableParams & { status?: string; userId?: string }) => {
     try {
+      console.log('Fetching disputes with params:', params);
       let query = "/disputes";
       if (params) {
         query += `?page=${params.pagination?.current}&limit=${params.pagination?.pageSize}`;
@@ -32,9 +33,15 @@ export const getAllDisputes = createAsyncThunk(
           query += `&level=${params.level}`;
         }
       }
+      console.log('API query:', query);
       const { data } = await axiosInstance.get<IPaginatedData<IDispute>>(query);
+      console.log('API response:', {
+        count: data.data.length,
+        totalItems: data.pagination.totalItems
+      });
       return data;
     } catch (error) {
+      console.error('Error fetching disputes:', error);
       const err = error as ResponseError;
       const message = err.response?.data.message || err.message;
       throw new Error(message);
@@ -135,21 +142,37 @@ const disputeSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder.addCase(getAllDisputes.pending, (state) => {
+      console.log('Fetching disputes - pending');
       state.loading = true;
+      state.error = null;
+      // Don't clear data to maintain previous state while loading
     });
     builder.addCase(getAllDisputes.fulfilled, (state, { payload }) => {
+      console.log('Fetching disputes - fulfilled:', {
+        count: payload.data.length,
+        totalItems: payload.pagination.totalItems
+      });
       state.loading = false;
-      state.data = payload;
+      state.error = null;
+      state.data = {
+        data: payload.data || [],
+        pagination: payload.pagination || { totalItems: 0, totalPages: 0 },
+        singleData: state.data.singleData
+      };
     });
     builder.addCase(getAllDisputes.rejected, (state, { error }) => {
+      console.log('Fetching disputes - rejected:', error);
       state.loading = false;
       state.error = error.message;
+      // Don't clear data on error to maintain previous state
     });
     builder.addCase(getDisputeById.pending, (state) => {
       state.loading = true;
+      state.error = null;
     });
     builder.addCase(getDisputeById.fulfilled, (state, { payload }) => {
       state.loading = false;
+      state.error = null;
       state.data.singleData = payload.data;
       state.data.data = state.data.data.map((dispute) => {
         if (dispute._id === payload.data._id) {
@@ -164,21 +187,24 @@ const disputeSlice = createSlice({
     });
     builder.addCase(createDispute.pending, (state) => {
       state.loading = true;
+      state.error = null;
     });
     builder.addCase(createDispute.fulfilled, (state, { payload }) => {
       state.loading = false;
+      state.error = null;
       state.data.data.unshift(payload.data);
     });
     builder.addCase(createDispute.rejected, (state, { error }) => {
       state.loading = false;
       state.error = error.message;
     });
-
     builder.addCase(updateStatus.pending, (state) => {
       state.loading = true;
+      state.error = null;
     });
     builder.addCase(updateStatus.fulfilled, (state, { payload }) => {
       state.loading = false;
+      state.error = null;
       state.data.singleData = payload.data;
       state.data.data = state.data.data.map((dispute) => {
         if (dispute._id === payload.data._id) {

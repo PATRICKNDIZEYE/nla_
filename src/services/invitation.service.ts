@@ -6,6 +6,9 @@ import { generateFilter, paginate } from "@/utils/helpers/function";
 import SmsService from "./SmsService";
 import mongoose from "mongoose";
 import LogService from "./log.service";
+import { generatePDF } from "@/utils/helpers/pdfGenerator";
+import EmailService from "./email.service";
+import { uploadToStorage } from "@/utils/helpers/fileStorage";
 
 export default class InvitationService {
   static async create(newData: Invitations) {
@@ -152,5 +155,228 @@ export default class InvitationService {
       target: invitation._id,
     });
     return invitation;
+  }
+
+  static async generateLetter(
+    invitationId: string,
+    params: {
+      letterType: 'first' | 'reminder' | 'final';
+      meetingDate: string;
+      venue: string;
+      additionalNotes?: string;
+    }
+  ) {
+    const invitation = await Invitation.findById(invitationId)
+      .populate('dispute')
+      .populate({
+        path: 'dispute',
+        populate: {
+          path: 'claimant defendant',
+          model: 'User',
+        },
+      });
+
+    if (!invitation) {
+      throw new Error("Invitation not found");
+    }
+
+    // Generate PDF content based on letter type and parameters
+    const letterContent = {
+      title: `${params.letterType.toUpperCase()} INVITATION`,
+      date: new Date().toLocaleDateString(),
+      recipient: invitation.dispute.defendant?.profile?.ForeName,
+      caseId: invitation.dispute.claimId,
+      meetingDate: new Date(params.meetingDate).toLocaleString(),
+      venue: params.venue,
+      additionalNotes: params.additionalNotes,
+      // Add more content based on your requirements
+    };
+
+    // Generate PDF
+    const pdfBuffer = await generatePDF(letterContent);
+    
+    // Upload to storage
+    const fileName = `invitation-${invitation.dispute.claimId}-${params.letterType}.pdf`;
+    const letterUrl = await uploadToStorage(pdfBuffer, fileName, 'application/pdf');
+
+    // Send email with the letter
+    if (invitation.dispute.defendant?.email) {
+      await EmailService.sendEmail({
+        to: invitation.dispute.defendant.email,
+        subject: `${params.letterType.toUpperCase()} Invitation - Case ${invitation.dispute.claimId}`,
+        html: `
+          <p>Dear ${invitation.dispute.defendant.profile?.ForeName},</p>
+          <p>Please find attached the invitation letter for your case.</p>
+          <p>Meeting Details:</p>
+          <ul>
+            <li>Date: ${new Date(params.meetingDate).toLocaleString()}</li>
+            <li>Venue: ${params.venue}</li>
+          </ul>
+          ${params.additionalNotes ? `<p>Additional Notes: ${params.additionalNotes}</p>` : ''}
+        `,
+        attachments: [{
+          filename: fileName,
+          content: pdfBuffer,
+        }],
+      });
+    }
+
+    // Send SMS notification
+    await SmsService.sendSms(
+      invitation.dispute.defendant?.phoneNumber,
+      `You have received a ${params.letterType} invitation for case ${invitation.dispute.claimId}. Please check your email for details.`
+    );
+
+    // Log the action
+    await LogService.create({
+      user: invitation.invitedBy!,
+      action: `Generated ${params.letterType} invitation letter for case ${invitation.dispute.claimId}`,
+      targettype: 'Invitation',
+      target: invitation._id,
+    });
+
+    return { letterUrl };
+  }
+
+  static async assignDefendant(invitationId: string) {
+    const invitation = await Invitation.findById(invitationId).populate('dispute');
+    if (!invitation) {
+      throw new Error("Invitation not found");
+    }
+
+    const dispute = await Dispute.findById(invitation.dispute._id);
+    if (!dispute) {
+      throw new Error("Dispute not found");
+    }
+
+    // Generate signup token/link
+    const signupToken = generateSignupToken(dispute.claimId);
+    const signupLink = `${process.env.NEXT_PUBLIC_APP_URL}/signup?token=${signupToken}&case=${dispute.claimId}`;
+
+    // Send welcome message with signup link
+    if (dispute.defendant?.phoneNumber) {
+      await SmsService.sendSms(
+        dispute.defendant.phoneNumber,
+        `You have been assigned as a defendant in case ${dispute.claimId}. Please register your account using this link: ${signupLink}`
+      );
+    }
+
+    if (dispute.defendant?.email) {
+      await EmailService.sendEmail({
+        to: dispute.defendant.email,
+        subject: `Case Assignment - ${dispute.claimId}`,
+        html: `
+          <p>Dear ${dispute.defendant.profile?.ForeName},</p>
+          <p>You have been assigned as a defendant in case ${dispute.claimId}.</p>
+          <p>Please click the link below to register your account:</p>
+          <a href="${signupLink}">${signupLink}</a>
+        `,
+      });
+    }
+
+    // Log the action
+    await LogService.create({
+      user: invitation.invitedBy!,
+      action: `Assigned defendant and sent welcome message for case ${dispute.claimId}`,
+      targettype: 'Invitation',
+      target: invitation._id,
+    });
+
+    return invitation;
+  }
+
+  static async shareDocuments(
+    invitationId: string,
+    params: {
+      documents: Array<{
+        filename: string;
+        buffer: Buffer;
+        mimetype: string;
+      }>;
+      recipientType: string[];
+      message?: string;
+    }
+  ) {
+    const invitation = await Invitation.findById(invitationId)
+      .populate('dispute')
+      .populate({
+        path: 'dispute',
+        populate: {
+          path: 'claimant defendant',
+          model: 'User',
+        },
+      });
+
+    if (!invitation) {
+      throw new Error("Invitation not found");
+    }
+
+    // Upload documents to storage
+    const uploadedFiles = await Promise.all(
+      params.documents.map(async (doc) => {
+        const fileName = `${invitation.dispute.claimId}-${Date.now()}-${doc.filename}`;
+        const fileUrl = await uploadToStorage(doc.buffer, fileName, doc.mimetype);
+        return { fileName, fileUrl };
+      })
+    );
+
+    // Prepare recipients
+    const recipients: { email: string; name: string }[] = [];
+    
+    if (params.recipientType.includes('committee')) {
+      // Add committee members' emails
+      // This would come from your committee members data
+    }
+    
+    if (params.recipientType.includes('defendant') && invitation.dispute.defendant?.email) {
+      recipients.push({
+        email: invitation.dispute.defendant.email,
+        name: `${invitation.dispute.defendant.profile?.ForeName} ${invitation.dispute.defendant.profile?.Surnames}`,
+      });
+    }
+    
+    if (params.recipientType.includes('plaintiff') && invitation.dispute.claimant?.email) {
+      recipients.push({
+        email: invitation.dispute.claimant.email,
+        name: `${invitation.dispute.claimant.profile?.ForeName} ${invitation.dispute.claimant.profile?.Surnames}`,
+      });
+    }
+
+    // Send emails with documents
+    await Promise.all(
+      recipients.map(async (recipient) => {
+        await EmailService.sendEmail({
+          to: recipient.email,
+          subject: `Documents Shared - Case ${invitation.dispute.claimId}`,
+          html: `
+            <p>Dear ${recipient.name},</p>
+            <p>New documents have been shared for case ${invitation.dispute.claimId}.</p>
+            ${params.message ? `<p>Message: ${params.message}</p>` : ''}
+            <p>Please find the documents attached.</p>
+          `,
+          attachments: uploadedFiles.map((file) => ({
+            filename: file.fileName,
+            path: file.fileUrl,
+          })),
+        });
+      })
+    );
+
+    // Log the action
+    await LogService.create({
+      user: invitation.invitedBy!,
+      action: `Shared ${uploadedFiles.length} documents for case ${invitation.dispute.claimId}`,
+      targettype: 'Invitation',
+      target: invitation._id,
+    });
+
+    return { success: true };
+  }
+
+  // Helper function to generate signup token
+  static generateSignupToken(caseId: string) {
+    // Implement your token generation logic here
+    // This could be a JWT or any other secure token format
+    return Buffer.from(`${caseId}-${Date.now()}`).toString('base64');
   }
 }

@@ -7,85 +7,124 @@ import mongoose from "mongoose";
 import SmsService from "./SmsService";
 import LogService from "./log.service";
 import Keys from "@/utils/constants/keys";
+import { DisputeVersion } from "@/models/DisputeVersion";
 
 export default class DisputeService {
   public static getAllClaims = async (params?: QueryParams) => {
-    const user = await User.findById(params?.userId);
-    const page = Number(params?.page || 1);
-    const limit = Number(params?.limit || 10);
+    try {
+      console.log('Fetching disputes with params:', params);
+      
+      const user = await User.findById(params?.userId);
+      const role = params?.role;
+      console.log('User found:', user?._id, 'Role from session:', role);
+      
+      const page = Number(params?.page || 1);
+      const limit = Number(params?.limit || 10);
+      const search = params?.search;
 
-    const search = params?.search;
+      // Base query object
+      const query: any = {
+        datetimedeleted: { $exists: false } // Changed to properly filter non-deleted disputes
+      };
 
-    const filter = generateFilter(params as QueryParams, [
-      "status",
-      "claimant.level.role",
-      "_id",
-      "openedBy._id",
-      "resolvedBy._id",
-      "level",
-    ]);
+      // Add role-based filters using role from session
+      if (role === "user") {
+        query.claimant = new mongoose.Types.ObjectId(params?.userId);
+      } else if (user?.level?.district) {
+        query.district = user.level.district.toLowerCase();
+      } else if (role === "admin") {
+        // Admin can see all disputes, so no additional filter needed
+        console.log('Admin user - showing all disputes');
+        // Remove any claimant filter that might have been added
+        delete query.claimant;
+      }
 
-    if (user?.level?.role === "user") {
-      filter["claimant"] = new mongoose.Types.ObjectId(user._id);
+      // Add any additional filters from params, but respect admin role
+      if (params?.filter) {
+        Object.entries(params.filter).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            // Skip claimant filter for admin users
+            if (key === 'claimant' && role === 'admin') {
+              console.log('Skipping claimant filter for admin user');
+              return;
+            }
+            if (key === 'claimant') {
+              query.claimant = new mongoose.Types.ObjectId(value as string);
+            } else {
+              query[key] = value;
+            }
+          }
+        });
+      }
 
-    } else if (user?.level?.district) {
-      filter["district"] = user?.level?.district?.toLocaleLowerCase();
-    } else if (user?.level?.role === "admin") {
-      filter["level"] = "nla";
+      console.log('Base query after role filters:', query);
+
+      // Add status filter if provided
+      if (params?.status) {
+        query.status = params.status;
+      }
+
+      // Add search conditions if search term provided
+      if (search) {
+        query.$or = [
+          { upiNumber: { $regex: search, $options: "i" } },
+          { status: { $regex: search, $options: "i" } },
+          { claimId: { $regex: search, $options: "i" } },
+          { disputeType: { $regex: search, $options: "i" } },
+          { "defendant.fullName": { $regex: search, $options: "i" } },
+          { "defendant.phoneNumber": { $regex: search, $options: "i" } }
+        ];
+      }
+
+      console.log('Final query:', JSON.stringify(query, null, 2));
+
+      // First check if there are any disputes matching the query
+      const totalCount = await Dispute.countDocuments(query);
+      console.log('Total matching disputes:', totalCount);
+
+      if (totalCount === 0) {
+        console.log('No disputes found matching the query');
+        return { 
+          data: [], 
+          pagination: paginate(0, limit, page)
+        };
+      }
+
+      // Execute query with pagination
+      const claims = await Dispute.find(query)
+        .populate('claimant', 'profile phoneNumber nationalId email level')
+        .populate('resolvedBy', 'profile level')
+        .populate('openedBy', 'profile level')
+        .populate('disputeType')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
+
+      console.log('Disputes found:', claims.length);
+      
+      // Add overdue days calculation
+      const disputes = claims.map(dispute => ({
+        ...dispute,
+        overdueDays: DisputeService.calculateOverdueDays(dispute as Disputes)
+      }));
+
+      console.log('Returning disputes with pagination:', {
+        count: disputes.length,
+        totalCount,
+        page,
+        limit,
+        role
+      });
+
+      return { 
+        data: disputes, 
+        pagination: paginate(totalCount, limit, page)
+      };
+    } catch (error) {
+      console.error('Error in getAllClaims:', error);
+      throw error;
     }
-
-    let $or = [{}];
-
-    if (search) {
-      $or = [
-        { upiNumber: { $regex: search, $options: "i" } },
-        { status: { $regex: search, $options: "i" } },
-        { "claimant.profile.ForeName": { $regex: search, $options: "i" } },
-        { "claimant.profile.Surnames": { $regex: search, $options: "i" } },
-        {
-          "claimant.nationalId": { $regex: search, $options: "i" },
-        },
-        {
-          disputeType: { $regex: search, $options: "i" },
-        },
-        {
-          "claimant.phoneNumber": { $regex: search, $options: "i" },
-        },
-        {
-          "claimant.profile.Email": { $regex: search, $options: "i" },
-        },
-        {
-          "defendant.fullName": { $regex: search, $options: "i" },
-        },
-        {
-          "defendant.phoneNumber": { $regex: search, $options: "i" },
-        },
-        {
-          claimId: { $regex: search, $options: "i" },
-        },
-      ];
-    }
-
-    const claims = await Dispute.find({
-      ...filter,
-      $or,
-    })
-      .populate("claimant resolvedBy openedBy")
-      .sort({ createdAt: -1 })
-      .skip(Math.abs(limit * (page - 1)))
-      .limit(limit);
-
-    const count = await Dispute.countDocuments({
-      ...filter,
-      $or,
-    });
-    const pagination = paginate(count, limit, page);
-
-    const disputes = claims.map((dispute) => ({
-      ...dispute.toJSON(),
-      overdueDays: DisputeService.calculateOverdueDays(dispute),
-    }));
-    return { data: disputes, pagination };
   };
 
   
@@ -149,34 +188,10 @@ export default class DisputeService {
     if (!_claim) {
       throw new Error("Dispute not found");
     }
-    
-    // Update processing days
-    const startDate = new Date(_claim.createdAt);
-    const currentDate = new Date();
-    _claim.processingDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    
     _claim.status = status;
-    _claim.lastUpdated = new Date().toISOString();
 
     if (status === "processing") {
       _claim.openedBy = openedBy;
-      // Automatically generate defendant signup link
-      if (!_claim.defendantSignupLink) {
-        const token = crypto.randomBytes(32).toString('hex');
-        _claim.defendantSignupLink = `${process.env.NEXT_PUBLIC_APP_URL}/signup/defendant/${token}`;
-        _claim.defendantSignupExpiry = new Date(Date.now() + 7*24*60*60*1000).toISOString(); // 7 days expiry
-        
-        // Send invitation to defendant
-        const defendantMessage = `You have been named in a land dispute case. Please register at: ${_claim.defendantSignupLink}`;
-        await SmsService.sendSms(_claim.defendant.phoneNumber, defendantMessage);
-        if (_claim.defendant.email) {
-          await EmailService.sendEmail(
-            _claim.defendant.email,
-            'Land Dispute Case Registration',
-            defendantMessage
-          );
-        }
-      }
     } else if (status === "resolved") {
       _claim.resolvedBy = openedBy;
       _claim.feedback = feedback;
@@ -200,25 +215,29 @@ export default class DisputeService {
     }
 
     await _claim.save();
-    
-    // Enhanced notifications
-    const notifications = await generateNotifications(_claim, status, feedback);
-    await Promise.all([
-      SmsService.sendBulk(notifications.sms),
-      EmailService.sendBulk(notifications.email)
-    ]);
+    const { phoneNumber } = _claim.claimant;
+    const { phoneNumber: defendantPhone } = _claim.defendant;
+    let defendantMessage = `Claim ${_claim.claimId} filed against you has been updated to ${status}`;
+    let claimantMessage = `Your claim ${_claim.claimId} has been updated to ${status}`;
+    let witnessMessage = `Claim ${_claim.claimId} where you are a witness has been updated to ${status}`;
+    if (feedback) {
+      defendantMessage += `\nFeedback: ${feedback}`;
+      claimantMessage += `\nFeedback: ${feedback}`;
+      witnessMessage += `\nFeedback: ${feedback}`;
+    }
+    SmsService.sendSms(phoneNumber, claimantMessage);
+    SmsService.sendSms(defendantPhone, defendantMessage);
+    _claim.witnesses.forEach((witness: any) => {
+      SmsService.sendSms(witness.phoneNumber, witnessMessage);
+    });
 
-    // Log the update with more details
-    await LogService.create({
+    EmailService.notifyUpdateDispute(_claim, _claim.claimant);
+
+    LogService.create({
       user: openedBy,
-      action: `Updated to ${status}`,
-      targetType: "Dispute",
+      action: `Updated to ${status} with feedback: ${feedback ?? "-"}`,
+      targettype: "Dispute",
       target: _claim.id,
-      details: {
-        processingDays: _claim.processingDays,
-        feedback,
-        status
-      }
     });
 
     return _claim;
@@ -705,32 +724,92 @@ export default class DisputeService {
     return 0;
   };
 
-  private static async generateNotifications(claim: IDispute, status: string, feedback?: string) {
-    const sms = [];
-    const email = [];
-    
-    // Base messages
-    const statusUpdate = `Case ${claim.claimId} status updated to: ${status}`;
-    const feedbackMsg = feedback ? `\nFeedback: ${feedback}` : '';
-    const processingInfo = `\nProcessing time: ${claim.processingDays} days`;
-    
-    // Add claimant notifications
-    sms.push({
-      to: claim.claimant?.phoneNumber,
-      message: `${statusUpdate}${feedbackMsg}${processingInfo}`
-    });
-    
-    if (claim.claimant?.email) {
-      email.push({
-        to: claim.claimant.email,
-        subject: `Case Status Update - ${claim.claimId}`,
-        message: `${statusUpdate}${feedbackMsg}${processingInfo}`
-      });
+  public static async updateDispute(
+    disputeId: string,
+    updates: Partial<IDispute>,
+    userId: string,
+    reason?: string
+  ) {
+    const dispute = await Dispute.findById(disputeId);
+    if (!dispute) {
+      throw new Error('Dispute not found');
     }
-    
-    // Add defendant notifications
-    // ... similar structure for defendant ...
-    
-    return { sms, email };
+
+    // Check edit permissions
+    if (!this.canEditDispute(dispute, userId)) {
+      throw new Error('Not authorized to edit this dispute');
+    }
+
+    // Create version record
+    const version = new DisputeVersion({
+      disputeId: dispute._id,
+      version: (await DisputeVersion.countDocuments({ disputeId: dispute._id })) + 1,
+      changes: updates,
+      changedBy: userId,
+      reason
+    });
+    await version.save();
+
+    // Update dispute
+    Object.assign(dispute, updates);
+    dispute.lastUpdated = new Date();
+    await dispute.save();
+
+    return dispute;
+  }
+
+  private static canEditDispute(dispute: IDispute, userId: string): boolean {
+    // If dispute is processing, only managers can edit
+    if (dispute.status === 'processing') {
+      return ['manager', 'admin'].includes(getUserRole(userId));
+    }
+
+    // If dispute is rejected, claimant can edit
+    if (dispute.status === 'rejected') {
+      return dispute.claimant._id.toString() === userId;
+    }
+
+    return false;
+  }
+
+  public static async getCaseCountsByUser(userId: string) {
+    const $match: Record<string, any> = {};
+    if (userId) {
+      $match["claimant"] = new mongoose.Types.ObjectId(userId);
+    }
+
+    const counts = await Dispute.aggregate([
+      { $match },
+      {
+        $group: {
+          _id: "$claimant",
+          total: { $sum: 1 },
+          opened: {
+            $sum: { $cond: [{ $eq: ["$status", "open"] }, 1, 0] }
+          },
+          processing: {
+            $sum: { $cond: [{ $eq: ["$status", "processing"] }, 1, 0] }
+          },
+          resolved: {
+            $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] }
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] }
+          },
+          appealed: {
+            $sum: { $cond: [{ $eq: ["$status", "appealed"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    return counts[0] || {
+      total: 0,
+      opened: 0,
+      processing: 0,
+      resolved: 0,
+      rejected: 0,
+      appealed: 0
+    };
   }
 }

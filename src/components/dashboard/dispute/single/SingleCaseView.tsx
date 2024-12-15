@@ -5,12 +5,14 @@ import DisputeInfo from "./DisputeInfo";
 import ClaimantProfile from "./ClaimantProfile";
 import LandInDispute from "./LandInDispute";
 import DefendantProfile from "./DefendantProfile";
+import DisputeChat from "@/components/dispute/DisputeChat";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { useParams } from "next/navigation";
 import { getDisputeById } from "@/redux/features/dispute/dispute.slice";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import Spinner from "@/components/partials/Spinner";
+import { MessageOutlined } from "@ant-design/icons";
 
 const SingleCaseView: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState("1");
@@ -21,6 +23,7 @@ const SingleCaseView: React.FC = () => {
     data: { singleData },
     loading,
   } = useAppSelector((state) => state.dispute);
+  const { data: currentUser } = useAppSelector((state) => state.profile);
 
   useEffect(() => {
     if (disputeId) {
@@ -51,6 +54,29 @@ const SingleCaseView: React.FC = () => {
       children: <DefendantProfile dispute={singleData} />,
     },
   ];
+
+  // Add chat tab if user is authorized
+  if (currentUser && singleData && (
+    currentUser.level?.role === 'admin' ||
+    currentUser._id === singleData.claimant?._id ||
+    currentUser._id === singleData.defendant?._id
+  )) {
+    items.push({
+      key: "5",
+      label: (
+        <span>
+          <MessageOutlined className="mr-2" />
+          {t("Messages")}
+        </span>
+      ),
+      children: (
+        <DisputeChat
+          dispute={singleData}
+          currentUser={currentUser}
+        />
+      ),
+    });
+  }
 
   if (loading) {
     return <Spinner />;

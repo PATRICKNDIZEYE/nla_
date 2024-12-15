@@ -9,6 +9,7 @@ import SmsService from "./SmsService";
 export default class ChatService {
   public static async getMessages(disputeId: string, params?: QueryParams) {
     try {
+      console.log('Getting messages for dispute:', disputeId, 'with params:', params);
       const page = Number(params?.page || 1);
       const limit = Number(params?.limit || 20);
 
@@ -16,7 +17,9 @@ export default class ChatService {
         disputeId: new mongoose.Types.ObjectId(disputeId)
       };
 
+      console.log('Query:', JSON.stringify(query));
       const totalCount = await Chat.countDocuments(query);
+      console.log('Total messages found:', totalCount);
 
       const messages = await Chat.find(query)
         .populate('sender', 'profile email phoneNumber level')
@@ -26,6 +29,7 @@ export default class ChatService {
         .limit(limit)
         .lean();
 
+      console.log('Retrieved messages:', messages.length);
       return {
         data: messages,
         pagination: paginate(totalCount, limit, page)
@@ -44,43 +48,85 @@ export default class ChatService {
     attachments?: string[];
   }) {
     try {
-      const { disputeId, senderId, receiverId, message, attachments } = data;
+      console.log('Sending message with data:', {
+        disputeId: data.disputeId,
+        senderId: data.senderId,
+        receiverId: data.receiverId,
+        messageLength: data.message?.length,
+        attachmentsCount: data.attachments?.length
+      });
+
+      // Validate input data
+      if (!data.disputeId || !data.senderId || !data.receiverId || !data.message) {
+        throw new Error('Missing required fields');
+      }
+
+      // Validate ObjectIds
+      if (!mongoose.Types.ObjectId.isValid(data.disputeId)) {
+        throw new Error('Invalid dispute ID');
+      }
+      if (!mongoose.Types.ObjectId.isValid(data.senderId)) {
+        throw new Error('Invalid sender ID');
+      }
+      if (!mongoose.Types.ObjectId.isValid(data.receiverId)) {
+        throw new Error('Invalid receiver ID');
+      }
 
       // Create and save the message
       const chat = await Chat.create({
-        disputeId,
-        sender: senderId,
-        receiver: receiverId,
-        message,
-        attachments
+        disputeId: new mongoose.Types.ObjectId(data.disputeId),
+        sender: new mongoose.Types.ObjectId(data.senderId),
+        receiver: new mongoose.Types.ObjectId(data.receiverId),
+        message: data.message,
+        attachments: data.attachments || []
       });
+
+      console.log('Message saved with ID:', chat._id);
 
       // Populate sender and receiver details
       const populatedChat = await Chat.findById(chat._id)
         .populate('sender', 'profile email phoneNumber level')
-        .populate('receiver', 'profile email phoneNumber level');
+        .populate('receiver', 'profile email phoneNumber level')
+        .lean();
+
+      if (!populatedChat) {
+        throw new Error('Failed to retrieve populated chat message');
+      }
+
+      console.log('Message populated successfully');
 
       // Send notifications
-      const receiver = await User.findById(receiverId);
-      if (receiver) {
-        // Send email notification
-        await EmailService.sendEmail({
-          to: receiver.email,
-          subject: `New Message - Case ${disputeId}`,
-          html: `
-            <p>You have received a new message regarding case ${disputeId}.</p>
-            <p>Message: ${message}</p>
-            <p>Please log in to the system to respond.</p>
-          `
-        });
+      try {
+        const receiver = await User.findById(data.receiverId);
+        if (receiver) {
+          console.log('Sending notifications to receiver:', receiver.email);
+          
+          // Send email notification
+          if (receiver.email) {
+            await EmailService.sendEmail({
+              to: receiver.email,
+              subject: `New Message - Case ${data.disputeId}`,
+              html: `
+                <p>You have received a new message regarding case ${data.disputeId}.</p>
+                <p>Message: ${data.message}</p>
+                <p>Please log in to the system to respond.</p>
+              `
+            });
+            console.log('Email notification sent');
+          }
 
-        // Send SMS notification
-        if (receiver.phoneNumber) {
-          await SmsService.sendSms(
-            receiver.phoneNumber,
-            `New message received for case ${disputeId}. Please log in to view and respond.`
-          );
+          // Send SMS notification
+          if (receiver.phoneNumber) {
+            await SmsService.sendSms(
+              receiver.phoneNumber,
+              `New message received for case ${data.disputeId}. Please log in to view and respond.`
+            );
+            console.log('SMS notification sent');
+          }
         }
+      } catch (notificationError) {
+        console.error('Error sending notifications:', notificationError);
+        // Don't throw error here, as the message was already saved
       }
 
       return populatedChat;
@@ -92,10 +138,12 @@ export default class ChatService {
 
   public static async markAsRead(messageIds: string[]) {
     try {
-      await Chat.updateMany(
-        { _id: { $in: messageIds } },
+      console.log('Marking messages as read:', messageIds);
+      const result = await Chat.updateMany(
+        { _id: { $in: messageIds.map(id => new mongoose.Types.ObjectId(id)) } },
         { $set: { read: true } }
       );
+      console.log('Mark as read result:', result);
       return true;
     } catch (error) {
       console.error('Error marking messages as read:', error);
@@ -105,10 +153,12 @@ export default class ChatService {
 
   public static async getUnreadCount(userId: string) {
     try {
+      console.log('Getting unread count for user:', userId);
       const count = await Chat.countDocuments({
         receiver: new mongoose.Types.ObjectId(userId),
         read: false
       });
+      console.log('Unread count:', count);
       return count;
     } catch (error) {
       console.error('Error getting unread count:', error);

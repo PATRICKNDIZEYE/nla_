@@ -5,7 +5,7 @@ import { getMessages, sendMessage, markMessagesAsRead } from '@/redux/features/c
 import { Avatar, Button, Input, List, Upload, message } from 'antd';
 import { SendOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { UploadFile } from 'antd/lib/upload/interface';
-import { formatDistanceToNow } from 'date-fns';
+import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 
 interface ChatBoxProps {
   disputeId: string;
@@ -44,22 +44,45 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
   const handleSend = async () => {
     if (!newMessage.trim() && fileList.length === 0) return;
 
-    const formData = new FormData();
-    formData.append('disputeId', disputeId);
-    formData.append('senderId', currentUserId);
-    formData.append('receiverId', receiverId);
-    formData.append('message', newMessage);
-
-    fileList.forEach(file => {
-      formData.append('attachments', file.originFileObj as File);
-    });
-
     try {
+      console.log('Preparing to send message');
+      
+      // Validate required fields
+      if (!disputeId || !currentUserId || !receiverId) {
+        console.error('Missing required fields:', { disputeId, currentUserId, receiverId });
+        message.error('Missing required fields for sending message');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('disputeId', disputeId);
+      formData.append('senderId', currentUserId);
+      formData.append('receiverId', receiverId);
+      formData.append('message', newMessage);
+
+      // Append files if any
+      fileList.forEach((file) => {
+        if (file.originFileObj) {
+          formData.append('attachments', file.originFileObj);
+        }
+      });
+
+      console.log('Sending message with form data:', {
+        disputeId,
+        senderId: currentUserId,
+        receiverId,
+        messageLength: newMessage.length,
+        attachmentsCount: fileList.length
+      });
+
       await dispatch(sendMessage(formData) as any);
+      console.log('Message sent successfully');
+      
       setNewMessage('');
       setFileList([]);
-    } catch (error) {
-      message.error('Failed to send message');
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      message.error(error.message || 'Failed to send message');
     }
   };
 

@@ -8,6 +8,7 @@ import logSlice from "./features/log/log.slice";
 import invitationSlice from "./features/invitation.slice";
 import profileSlice from "./features/user/profile.slice";
 import statisticsSlice from "./features/statistics.slice";
+import chatSlice from "./features/chat/chat.slice";
 
 export const store = configureStore({
   reducer: {
@@ -19,6 +20,7 @@ export const store = configureStore({
     stat: statisticsSlice,
     invitation: invitationSlice,
     profile: profileSlice,
+    chat: chatSlice,
   },
   middleware(getDefaultMiddleware) {
     return getDefaultMiddleware({

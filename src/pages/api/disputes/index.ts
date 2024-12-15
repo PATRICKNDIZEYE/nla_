@@ -83,7 +83,7 @@ export default async function handler(
 
     case "GET":
       try {
-        const { userId, district, status, isSwitch, role, ...restQuery } = req.query;
+        const { userId, district, status, isSwitch, role, targetUserId, ...restQuery } = req.query;
         console.log('API Request Query:', req.query);
         
         const filter: any = {};
@@ -91,8 +91,11 @@ export default async function handler(
         // Use role from query params (session) instead of querying database
         console.log('User role from session:', role);
         
-        // Only filter by userId if not admin and not in switch mode
-        if (userId && !isSwitch && role !== 'admin') {
+        // If targetUserId is provided, it takes precedence over other user filters
+        if (targetUserId) {
+          console.log('Using target user filter:', targetUserId);
+          filter.claimant = targetUserId;
+        } else if (userId && !isSwitch && role !== 'admin') {
           console.log('Adding user filter:', userId);
           filter.claimant = userId;
         }
@@ -114,6 +117,7 @@ export default async function handler(
           ...restQuery,
           userId: userId?.toString(),
           role: role?.toString(),
+          targetUserId: targetUserId?.toString(),
           filter 
         });
         

@@ -11,7 +11,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 export const getAllDisputes = createAsyncThunk(
   "dispute/getAllDisputes",
-  async (params: TableParams & { status?: string; userId?: string }) => {
+  async (params: TableParams & { status?: string; userId?: string; targetUserId?: string }) => {
     try {
       console.log('Fetching disputes with params:', params);
       let query = "/disputes";
@@ -28,6 +28,9 @@ export const getAllDisputes = createAsyncThunk(
         }
         if (params.userId) {
           query += `&userId=${params.userId}`;
+        }
+        if (params.targetUserId) {
+          query += `&targetUserId=${params.targetUserId}`;
         }
         if (params.level) {
           query += `&level=${params.level}`;

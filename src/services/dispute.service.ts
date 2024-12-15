@@ -8,6 +8,8 @@ import SmsService from "./SmsService";
 import LogService from "./log.service";
 import Keys from "@/utils/constants/keys";
 import { DisputeVersion } from "@/models/DisputeVersion";
+import jwt from "jsonwebtoken";
+import { uploadToStorage } from "@/utils/helpers/storage";
 
 export default class DisputeService {
   public static getAllClaims = async (params?: QueryParams) => {
@@ -16,7 +18,8 @@ export default class DisputeService {
       
       const user = await User.findById(params?.userId);
       const role = params?.role;
-      console.log('User found:', user?._id, 'Role from session:', role);
+      const targetUserId = params?.targetUserId;
+      console.log('User found:', user?._id, 'Role from session:', role, 'Target User:', targetUserId);
       
       const page = Number(params?.page || 1);
       const limit = Number(params?.limit || 10);
@@ -24,30 +27,28 @@ export default class DisputeService {
 
       // Base query object
       const query: any = {
-        datetimedeleted: { $exists: false } // Changed to properly filter non-deleted disputes
+        datetimedeleted: { $exists: false }
       };
 
-      // Add role-based filters using role from session
-      if (role === "user") {
-        query.claimant = new mongoose.Types.ObjectId(params?.userId);
-      } else if (user?.level?.district) {
-        query.district = user.level.district.toLowerCase();
-      } else if (role === "admin") {
-        // Admin can see all disputes, so no additional filter needed
-        console.log('Admin user - showing all disputes');
-        // Remove any claimant filter that might have been added
-        delete query.claimant;
+      // If targetUserId is provided, show cases for that user regardless of role
+      if (targetUserId) {
+        query.claimant = new mongoose.Types.ObjectId(targetUserId);
+      } else {
+        // Regular role-based filtering
+        if (role === "user") {
+          query.claimant = new mongoose.Types.ObjectId(params?.userId);
+        } else if (user?.level?.district) {
+          query.district = user.level.district.toLowerCase();
+        } else if (role === "admin") {
+          // Admin can see all disputes, so no additional filter needed
+          console.log('Admin user - showing all disputes');
+        }
       }
 
-      // Add any additional filters from params, but respect admin role
+      // Add any additional filters from params
       if (params?.filter) {
         Object.entries(params.filter).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
-            // Skip claimant filter for admin users
-            if (key === 'claimant' && role === 'admin') {
-              console.log('Skipping claimant filter for admin user');
-              return;
-            }
             if (key === 'claimant') {
               query.claimant = new mongoose.Types.ObjectId(value as string);
             } else {
@@ -57,7 +58,7 @@ export default class DisputeService {
         });
       }
 
-      console.log('Base query after role filters:', query);
+      console.log('Base query after filters:', query);
 
       // Add status filter if provided
       if (params?.status) {
@@ -811,5 +812,194 @@ export default class DisputeService {
       rejected: 0,
       appealed: 0
     };
+  }
+
+  public static async assignDefendant(disputeId: string, defendantData: {
+    email: string;
+    phoneNumber: string;
+    fullName: string;
+    nationalId?: string;
+  }) {
+    try {
+      const dispute = await Dispute.findById(disputeId);
+      if (!dispute) {
+        throw new Error("Dispute not found");
+      }
+
+      // Generate unique signup token
+      const signupToken = jwt.sign(
+        {
+          disputeId,
+          email: defendantData.email,
+          phoneNumber: defendantData.phoneNumber,
+          role: 'defendant'
+        },
+        Keys.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      // Update dispute with defendant info
+      dispute.defendant = {
+        ...dispute.defendant,
+        ...defendantData,
+        assignedAt: new Date(),
+        signupToken
+      };
+      await dispute.save();
+
+      // Send welcome email
+      const signupLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/signup?token=${signupToken}`;
+      await EmailService.sendEmail({
+        to: defendantData.email,
+        subject: `Case Assignment - ${dispute.claimId}`,
+        html: `
+          <p>Dear ${defendantData.fullName},</p>
+          <p>You have been assigned as a defendant in case ${dispute.claimId}.</p>
+          <p>Please click the link below to create your account and access the case:</p>
+          <a href="${signupLink}">${signupLink}</a>
+          <p>This link will expire in 7 days.</p>
+        `
+      });
+
+      // Send SMS notification
+      if (defendantData.phoneNumber) {
+        await SmsService.sendSms(
+          defendantData.phoneNumber,
+          `You have been assigned as a defendant in case ${dispute.claimId}. Please check your email ${defendantData.email} for account creation instructions.`
+        );
+      }
+
+      // Log the action
+      await LogService.create({
+        action: `Defendant assigned to case ${dispute.claimId}`,
+        targettype: "Dispute",
+        target: dispute._id,
+        details: {
+          defendantEmail: defendantData.email,
+          defendantPhone: defendantData.phoneNumber
+        }
+      });
+
+      return dispute;
+    } catch (error) {
+      console.error('Error assigning defendant:', error);
+      throw error;
+    }
+  }
+
+  public static async shareDocuments(
+    disputeId: string,
+    {
+      documents,
+      recipientType,
+      message
+    }: {
+      documents: Array<{
+        buffer: Buffer;
+        filename: string;
+        mimetype: string;
+      }>;
+      recipientType: ('committee' | 'defendant' | 'claimant')[];
+      message?: string;
+    }
+  ) {
+    try {
+      const dispute = await Dispute.findById(disputeId)
+        .populate('claimant')
+        .populate('defendant');
+      
+      if (!dispute) {
+        throw new Error("Dispute not found");
+      }
+
+      // Upload documents to storage
+      const uploadedFiles = await Promise.all(
+        documents.map(async (doc) => {
+          const fileName = `${dispute.claimId}-${Date.now()}-${doc.filename}`;
+          const fileUrl = await uploadToStorage(doc.buffer, fileName, doc.mimetype);
+          return { fileName, fileUrl };
+        })
+      );
+
+      // Save document references to dispute
+      dispute.sharedDocuments = [
+        ...(dispute.sharedDocuments || []),
+        ...uploadedFiles.map(file => ({
+          url: file.fileUrl,
+          name: file.fileName,
+          sharedAt: new Date(),
+          recipientType
+        }))
+      ];
+      await dispute.save();
+
+      // Get recipients
+      const recipients: { email: string; name: string }[] = [];
+      
+      if (recipientType.includes('committee')) {
+        // Add committee members from configuration or database
+        const committeeMembers = await User.find({ 'level.role': 'committee' });
+        recipients.push(...committeeMembers.map(member => ({
+          email: member.email,
+          name: `${member.profile?.ForeName} ${member.profile?.Surnames}`
+        })));
+      }
+      
+      if (recipientType.includes('defendant') && dispute.defendant?.email) {
+        recipients.push({
+          email: dispute.defendant.email,
+          name: dispute.defendant.fullName
+        });
+      }
+      
+      if (recipientType.includes('claimant') && dispute.claimant?.email) {
+        recipients.push({
+          email: dispute.claimant.email,
+          name: `${dispute.claimant.profile?.ForeName} ${dispute.claimant.profile?.Surnames}`
+        });
+      }
+
+      // Send emails with documents
+      await Promise.all(
+        recipients.map(async (recipient) => {
+          await EmailService.sendEmail({
+            to: recipient.email,
+            subject: `Documents Shared - Case ${dispute.claimId}`,
+            html: `
+              <p>Dear ${recipient.name},</p>
+              <p>New documents have been shared for case ${dispute.claimId}.</p>
+              ${message ? `<p>Message: ${message}</p>` : ''}
+              <p>Documents:</p>
+              <ul>
+                ${uploadedFiles.map(file => `
+                  <li><a href="${file.fileUrl}">${file.fileName}</a></li>
+                `).join('')}
+              </ul>
+            `
+          });
+        })
+      );
+
+      // Log the action
+      await LogService.create({
+        action: `Documents shared for case ${dispute.claimId}`,
+        targettype: "Dispute",
+        target: dispute._id,
+        details: {
+          documentCount: uploadedFiles.length,
+          recipientType,
+          recipientCount: recipients.length
+        }
+      });
+
+      return {
+        success: true,
+        sharedWith: recipients.length,
+        documents: uploadedFiles
+      };
+    } catch (error) {
+      console.error('Error sharing documents:', error);
+      throw error;
+    }
   }
 }

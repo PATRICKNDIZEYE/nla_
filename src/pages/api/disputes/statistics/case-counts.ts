@@ -18,14 +18,19 @@ export default async function handler(
         }
 
         const counts = await DisputeService.getCaseCountsByUser(userId as string);
+        
         return res.status(200).json({
           message: "Case counts fetched successfully",
           data: {
             _id: userId,
-            counts: counts.reduce((acc, curr) => {
-              acc[curr._id] = curr.count;
-              return acc;
-            }, {} as Record<string, number>)
+            counts: {
+              total: counts.total,
+              open: counts.opened,
+              processing: counts.processing,
+              resolved: counts.resolved,
+              rejected: counts.rejected,
+              appealed: counts.appealed
+            }
           }
         });
       } catch (error: any) {

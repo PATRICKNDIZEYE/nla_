@@ -17,6 +17,21 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
+
+  // Configure static file serving
+  images: {
+    domains: ['localhost'],
+  },
+  
+  // Allow serving files from /public/uploads
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: '/api/uploads/:path*',
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

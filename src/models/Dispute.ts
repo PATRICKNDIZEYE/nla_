@@ -59,6 +59,12 @@ export interface Disputes extends mongoose.Document {
   invitationProof: string;
   summary: string;
   stampedLetter?: string;
+  sharedDocuments?: Array<{
+    url: string;
+    name: string;
+    sharedAt: string;
+    recipientType: string[];
+  }>;
 }
 
 const DisputeSchema = new mongoose.Schema<Disputes>({
@@ -232,6 +238,25 @@ const DisputeSchema = new mongoose.Schema<Disputes>({
     required: false,
     default: null,
   },
+  sharedDocuments: [{
+    url: {
+      type: String,
+      required: true
+    },
+    name: {
+      type: String,
+      required: true
+    },
+    sharedAt: {
+      type: String,
+      required: true,
+      default: () => new Date().toISOString()
+    },
+    recipientType: [{
+      type: String,
+      required: true
+    }]
+  }],
 });
 
 DisputeSchema.set("timestamps", true);

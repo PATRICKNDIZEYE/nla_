@@ -37,6 +37,13 @@ export interface IDisputeCategory {
   description: string;
 }
 
+export interface ISharedDocument {
+  url: string;
+  name: string;
+  sharedAt: string;
+  recipientType: string[];
+}
+
 export interface IDispute {
   summary: string;
   deedPlan?: string;
@@ -80,6 +87,7 @@ export interface IDispute {
   defendantSignupLink?: string;
   defendantSignupExpiry?: string;
   autoAssignmentStatus?: "pending" | "completed" | "failed";
+  sharedDocuments?: ISharedDocument[];
 }
 
 export interface IAppeal {

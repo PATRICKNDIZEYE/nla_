@@ -949,6 +949,18 @@ export default class DisputeService {
     }
   ) {
     try {
+      console.log('Starting document share process for dispute:', disputeId);
+      console.log('Documents count:', documents.length);
+      console.log('Recipient types:', recipientType);
+
+      if (!documents || documents.length === 0) {
+        throw new Error('No documents provided');
+      }
+
+      if (!recipientType || recipientType.length === 0) {
+        throw new Error('No recipient types specified');
+      }
+
       const dispute = await Dispute.findById(disputeId)
         .populate('claimant')
         .populate('defendant');
@@ -957,14 +969,26 @@ export default class DisputeService {
         throw new Error("Dispute not found");
       }
 
+      console.log('Found dispute:', dispute.claimId);
+
       // Upload documents to storage
+      console.log('Starting document upload to storage');
       const uploadedFiles = await Promise.all(
         documents.map(async (doc) => {
-          const fileName = `${dispute.claimId}-${Date.now()}-${doc.filename}`;
-          const fileUrl = await uploadToStorage(doc.buffer, fileName, doc.mimetype);
-          return { fileName, fileUrl };
+          try {
+            const fileName = `${dispute.claimId}-${Date.now()}-${doc.filename}`;
+            console.log('Uploading file:', fileName);
+            const fileUrl = await uploadToStorage(doc.buffer, fileName, doc.mimetype);
+            console.log('File uploaded successfully:', fileName);
+            return { fileName, fileUrl };
+          } catch (error) {
+            console.error('Error uploading file:', doc.filename, error);
+            throw new Error(`Failed to upload file ${doc.filename}: ${error.message}`);
+          }
         })
       );
+
+      console.log('All files uploaded successfully');
 
       // Save document references to dispute
       dispute.sharedDocuments = [
@@ -976,14 +1000,18 @@ export default class DisputeService {
           recipientType
         }))
       ];
+
+      console.log('Saving document references to dispute');
       await dispute.save();
+      console.log('Document references saved successfully');
 
       // Get recipients
       const recipients: { email: string; name: string }[] = [];
-      
+
       if (recipientType.includes('committee')) {
-        // Add committee members from configuration or database
+        console.log('Finding committee members');
         const committeeMembers = await User.find({ 'level.role': 'committee' });
+        console.log('Found committee members:', committeeMembers.length);
         recipients.push(...committeeMembers.map(member => ({
           email: member.email,
           name: `${member.profile?.ForeName} ${member.profile?.Surnames}`
@@ -991,6 +1019,7 @@ export default class DisputeService {
       }
       
       if (recipientType.includes('defendant') && dispute.defendant?.email) {
+        console.log('Adding defendant to recipients');
         recipients.push({
           email: dispute.defendant.email,
           name: dispute.defendant.fullName
@@ -998,32 +1027,44 @@ export default class DisputeService {
       }
       
       if (recipientType.includes('claimant') && dispute.claimant?.email) {
+        console.log('Adding claimant to recipients');
         recipients.push({
           email: dispute.claimant.email,
           name: `${dispute.claimant.profile?.ForeName} ${dispute.claimant.profile?.Surnames}`
         });
       }
 
+      console.log('Total recipients:', recipients.length);
+
       // Send emails with documents
+      console.log('Starting email sending process');
       await Promise.all(
         recipients.map(async (recipient) => {
-          await EmailService.sendEmail({
-            to: recipient.email,
-            subject: `Documents Shared - Case ${dispute.claimId}`,
-            html: `
-              <p>Dear ${recipient.name},</p>
-              <p>New documents have been shared for case ${dispute.claimId}.</p>
-              ${message ? `<p>Message: ${message}</p>` : ''}
-              <p>Documents:</p>
-              <ul>
-                ${uploadedFiles.map(file => `
-                  <li><a href="${file.fileUrl}">${file.fileName}</a></li>
-                `).join('')}
-              </ul>
-            `
-          });
+          try {
+            await EmailService.sendEmail({
+              to: recipient.email,
+              subject: `Documents Shared - Case ${dispute.claimId}`,
+              html: `
+                <p>Dear ${recipient.name},</p>
+                <p>New documents have been shared for case ${dispute.claimId}.</p>
+                ${message ? `<p>Message: ${message}</p>` : ''}
+                <p>Documents:</p>
+                <ul>
+                  ${uploadedFiles.map(file => `
+                    <li><a href="${file.fileUrl}">${file.fileName}</a></li>
+                  `).join('')}
+                </ul>
+              `
+            });
+            console.log('Email sent successfully to:', recipient.email);
+          } catch (error) {
+            console.error('Error sending email to:', recipient.email, error);
+            // Don't throw here to allow other emails to be sent
+          }
         })
       );
+
+      console.log('All emails sent successfully');
 
       // Log the action
       await LogService.create({
@@ -1037,13 +1078,15 @@ export default class DisputeService {
         }
       });
 
+      console.log('Action logged successfully');
+
       return {
         success: true,
         sharedWith: recipients.length,
         documents: uploadedFiles
       };
     } catch (error) {
-      console.error('Error sharing documents:', error);
+      console.error('Error in shareDocuments:', error);
       throw error;
     }
   }

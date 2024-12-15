@@ -110,31 +110,34 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
           dataSource={messages}
           loading={loading}
           renderItem={(msg) => {
+            if (!msg?.sender?._id) {
+              console.warn('Invalid message:', msg);
+              return null;
+            }
+
             const isSender = msg.sender._id === currentUserId;
+            const senderName = msg.sender.profile?.ForeName 
+              ? `${msg.sender.profile.ForeName} ${msg.sender.profile.Surnames || ''}`
+              : 'Unknown User';
+
             return (
               <List.Item className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex ${isSender ? 'flex-row-reverse' : 'flex-row'} items-start max-w-[70%]`}>
-                  <Avatar 
-                    className={`${isSender ? 'ml-2' : 'mr-2'}`}
-                    src={msg.sender.profile?.avatar}
-                  >
-                    {msg.sender.profile?.ForeName?.[0]}
-                  </Avatar>
-                  <div>
-                    <div className={`
-                      rounded-lg p-3 mb-1
-                      ${isSender ? 'bg-blue-500 text-white' : 'bg-gray-100'}
-                    `}>
-                      <div>{msg.message}</div>
+                <div className={`flex ${isSender ? 'flex-row-reverse' : 'flex-row'} items-start max-w-[70%] gap-2`}>
+                  <div className={`flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
+                    <span className="text-xs text-gray-500">{senderName}</span>
+                    <div className={`p-3 rounded-lg ${
+                      isSender ? 'bg-blue-500 text-white' : 'bg-gray-100'
+                    }`}>
+                      <p className="m-0">{msg.message}</p>
                       {msg.attachments?.length > 0 && (
                         <div className="mt-2">
-                          {msg.attachments.map((url, index) => (
+                          {msg.attachments.map((attachment, index) => (
                             <a
                               key={index}
-                              href={url}
+                              href={attachment}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="block text-sm underline"
+                              className={`text-sm ${isSender ? 'text-white' : 'text-blue-500'} underline`}
                             >
                               Attachment {index + 1}
                             </a>
@@ -142,9 +145,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({ disputeId, currentUserId, receiverId 
                         </div>
                       )}
                     </div>
-                    <div className={`text-xs text-gray-500 ${isSender ? 'text-right' : 'text-left'}`}>
+                    <span className="text-xs text-gray-400">
                       {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
-                    </div>
+                    </span>
                   </div>
                 </div>
               </List.Item>

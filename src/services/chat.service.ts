@@ -27,16 +27,22 @@ export default class ChatService {
       console.log('Total messages found:', totalCount);
 
       const messages = await Chat.find(query)
-        .populate('sender', 'profile email phoneNumber level')
-        .populate('receiver', 'profile email phoneNumber level')
+        .populate('sender', '_id profile email phoneNumber level')
+        .populate('receiver', '_id profile email phoneNumber level')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean();
 
-      console.log('Retrieved messages:', messages.length);
+      // Filter out any messages with invalid sender/receiver
+      const validMessages = messages.filter(msg => 
+        msg && msg.sender && msg.sender._id && 
+        msg.receiver && msg.receiver._id
+      );
+
+      console.log('Retrieved messages:', validMessages.length);
       return {
-        data: messages,
+        data: validMessages,
         pagination: paginate(totalCount, limit, page)
       };
     } catch (error) {

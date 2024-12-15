@@ -6,6 +6,7 @@ import ClaimantProfile from "./ClaimantProfile";
 import LandInDispute from "./LandInDispute";
 import DefendantProfile from "./DefendantProfile";
 import DisputeChat from "@/components/dispute/DisputeChat";
+import CommitteeDocuments from "./CommitteeDocuments";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { useParams } from "next/navigation";
@@ -29,8 +30,11 @@ const SingleCaseView: React.FC = () => {
     if (disputeId) {
       dispatch(getDisputeById(disputeId.toString()));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disputeId]);
+  }, [dispatch, disputeId]);
+
+  const canShareDocuments = currentUser?.level?.role === 'admin' || 
+    (currentUser?.level?.role === 'manager' && 
+     currentUser?.level?.district?.toLowerCase() === singleData?.district?.toLowerCase());
 
   const items: TabsProps["items"] = [
     {
@@ -53,16 +57,22 @@ const SingleCaseView: React.FC = () => {
       label: t("Defendant Profile"),
       children: <DefendantProfile dispute={singleData} />,
     },
+    {
+      key: "5",
+      label: t("Committee Documents"),
+      children: <CommitteeDocuments dispute={singleData} canShare={canShareDocuments} />,
+    }
   ];
 
   // Add chat tab if user is authorized
   if (currentUser && singleData && (
     currentUser.level?.role === 'admin' ||
+    currentUser.level?.role === 'manager' ||
     currentUser._id === singleData.claimant?._id ||
     currentUser._id === singleData.defendant?._id
   )) {
     items.push({
-      key: "5",
+      key: "6",
       label: (
         <span>
           <MessageOutlined className="mr-2" />
@@ -81,6 +91,7 @@ const SingleCaseView: React.FC = () => {
   if (loading) {
     return <Spinner />;
   }
+
   return (
     <>
       <Breadcrumb

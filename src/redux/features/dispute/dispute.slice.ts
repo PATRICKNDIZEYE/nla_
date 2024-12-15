@@ -90,8 +90,6 @@ export const createDispute = createAsyncThunk(
   }
 );
 
-
-
 export const updateStatus = createAsyncThunk(
   "dispute/updateStatus",
   async (
@@ -121,6 +119,29 @@ export const updateStatus = createAsyncThunk(
       const err = error as ResponseError;
       const message = err.response?.data.message || err.message;
       throw new Error(message);
+    }
+  }
+);
+
+export const shareDocuments = createAsyncThunk(
+  "dispute/shareDocuments",
+  async ({ disputeId, formData }: { disputeId: string; formData: FormData }) => {
+    try {
+      console.log('Sharing documents for dispute:', disputeId);
+      const { data } = await axiosInstance.post(
+        `/disputes/${disputeId}/share-documents`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      console.log('Documents shared successfully:', data);
+      return data;
+    } catch (error: any) {
+      console.error('Error sharing documents:', error);
+      throw new Error(error.response?.data?.message || 'Failed to share documents');
     }
   }
 );
@@ -220,6 +241,32 @@ const disputeSlice = createSlice({
       });
     });
     builder.addCase(updateStatus.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+    builder.addCase(shareDocuments.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(shareDocuments.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.error = null;
+      if (state.data.singleData) {
+        state.data.singleData = {
+          ...state.data.singleData,
+          sharedDocuments: [
+            ...(state.data.singleData.sharedDocuments || []),
+            ...(payload.data.documents || []).map((doc: any) => ({
+              url: doc.fileUrl,
+              name: doc.fileName,
+              sharedAt: new Date().toISOString(),
+              recipientType: ['committee']
+            }))
+          ]
+        };
+      }
+    });
+    builder.addCase(shareDocuments.rejected, (state, { error }) => {
       state.loading = false;
       state.error = error.message;
     });

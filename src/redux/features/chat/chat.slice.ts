@@ -38,7 +38,12 @@ export const getMessages = createAsyncThunk(
       );
       
       console.log('Messages fetched:', data.data.length);
-      return data;
+      // Ensure messages have valid sender objects
+      const validMessages = data.data.filter(msg => msg && msg.sender && msg.sender._id);
+      return {
+        ...data,
+        data: validMessages
+      };
     } catch (error) {
       console.error('Error fetching messages:', error);
       const err = error as ResponseError;
@@ -58,6 +63,12 @@ export const sendMessage = createAsyncThunk(
         }
       });
       console.log('Message sent successfully:', data);
+      
+      // Validate message data
+      if (!data?.sender?._id) {
+        throw new Error('Invalid message data received from server');
+      }
+      
       return data;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -103,9 +114,14 @@ const chatSlice = createSlice({
       state.error = null;
     },
     addMessage: (state, action) => {
-      state.messages.unshift(action.payload);
-      state.pagination.totalItems += 1;
-      state.error = null;
+      // Validate message before adding
+      if (action.payload?.sender?._id) {
+        state.messages.unshift(action.payload);
+        state.pagination.totalItems += 1;
+        state.error = null;
+      } else {
+        console.warn('Attempted to add invalid message:', action.payload);
+      }
     }
   },
   extraReducers: (builder) => {
@@ -116,7 +132,8 @@ const chatSlice = createSlice({
     });
     builder.addCase(getMessages.fulfilled, (state, { payload }) => {
       state.loading = false;
-      state.messages = payload.data;
+      // Filter out invalid messages
+      state.messages = payload.data.filter(msg => msg?.sender?._id);
       state.pagination = payload.pagination;
       state.error = null;
     });
@@ -133,8 +150,11 @@ const chatSlice = createSlice({
     });
     builder.addCase(sendMessage.fulfilled, (state, { payload }) => {
       state.loading = false;
-      state.messages.unshift(payload);
-      state.pagination.totalItems += 1;
+      // Only add valid messages
+      if (payload?.sender?._id) {
+        state.messages.unshift(payload);
+        state.pagination.totalItems += 1;
+      }
       state.error = null;
     });
     builder.addCase(sendMessage.rejected, (state, { error }) => {

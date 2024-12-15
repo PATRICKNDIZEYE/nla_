@@ -39,6 +39,27 @@ const DisputeChat: React.FC<DisputeChatProps> = ({ dispute, currentUser }) => {
     fullData: dispute
   });
 
+  // Show appropriate message based on dispute status and user role
+  const getStatusMessage = () => {
+    if (currentUser._id === dispute.claimant?._id) {
+      if (dispute.status === 'open' && !dispute.openedBy?._id) {
+        return "Chat will be available once an administrator or district manager reviews your case.";
+      }
+      if (!dispute.defendant?._id) {
+        return "Chat will be available once a defendant is assigned to the case.";
+      }
+    }
+    if (currentUser._id === dispute.defendant?._id) {
+      if (!dispute.openedBy?._id && !dispute.resolvedBy?._id) {
+        return "Chat will be available once an administrator or district manager reviews the case.";
+      }
+    }
+    if (currentUser.level?.role === 'manager' && currentUser.level?.district?.toLowerCase() !== dispute.district?.toLowerCase()) {
+      return "Chat is only available for disputes in your district.";
+    }
+    return "No chat participants available at this time.";
+  };
+
   // Determine chat participants based on user role and dispute details
   const getChatParticipants = () => {
     const participants = [];
@@ -52,7 +73,8 @@ const DisputeChat: React.FC<DisputeChatProps> = ({ dispute, currentUser }) => {
       hasDefendant: Boolean(dispute.defendant?._id),
       hasClaimant: Boolean(dispute.claimant?._id),
       userDistrict: currentUser.level?.district,
-      disputeDistrict: dispute.district
+      disputeDistrict: dispute.district,
+      status: dispute.status
     });
 
     // Admin or District Manager can chat with both claimant and defendant
@@ -75,8 +97,8 @@ const DisputeChat: React.FC<DisputeChatProps> = ({ dispute, currentUser }) => {
         });
       }
     }
-    // Claimant can chat with admin/manager and defendant
-    else if (currentUser._id === dispute.claimant?._id) {
+    // Claimant can chat with admin/manager and defendant once case is being processed
+    else if (currentUser._id === dispute.claimant?._id && (dispute.openedBy?._id || dispute.status !== 'open')) {
       console.log('Claimant user - adding available participants');
       // Chat with admin/manager
       const adminId = dispute.openedBy?._id || dispute.resolvedBy?._id;
@@ -88,7 +110,7 @@ const DisputeChat: React.FC<DisputeChatProps> = ({ dispute, currentUser }) => {
           userId: adminId
         });
       }
-      // Chat with defendant
+      // Chat with defendant if assigned
       if (dispute.defendant?._id) {
         participants.push({
           key: 'defendant',
@@ -97,8 +119,8 @@ const DisputeChat: React.FC<DisputeChatProps> = ({ dispute, currentUser }) => {
         });
       }
     }
-    // Defendant can chat with admin/manager and claimant
-    else if (currentUser._id === dispute.defendant?._id) {
+    // Defendant can chat with admin/manager and claimant once case is being processed
+    else if (currentUser._id === dispute.defendant?._id && (dispute.openedBy?._id || dispute.status !== 'open')) {
       console.log('Defendant user - adding available participants');
       // Chat with admin/manager
       const adminId = dispute.openedBy?._id || dispute.resolvedBy?._id;
@@ -133,27 +155,6 @@ const DisputeChat: React.FC<DisputeChatProps> = ({ dispute, currentUser }) => {
   };
 
   const participants = getChatParticipants();
-
-  // Show appropriate message based on dispute status and user role
-  const getStatusMessage = () => {
-    if (currentUser._id === dispute.claimant?._id) {
-      if (dispute.status === 'open') {
-        return "Chat will be available once an administrator or district manager reviews your case.";
-      }
-      if (!dispute.defendant?._id) {
-        return "Chat will be available once a defendant is assigned to the case.";
-      }
-    }
-    if (currentUser._id === dispute.defendant?._id) {
-      if (!dispute.openedBy?._id && !dispute.resolvedBy?._id) {
-        return "Chat will be available once an administrator or district manager reviews the case.";
-      }
-    }
-    if (currentUser.level?.role === 'manager' && currentUser.level?.district?.toLowerCase() !== dispute.district?.toLowerCase()) {
-      return "Chat is only available for disputes in your district.";
-    }
-    return "No chat participants available at this time.";
-  };
 
   if (participants.length === 0) {
     console.log('DisputeChat - No participants found, showing status message. Current user role:', currentUser.level?.role);

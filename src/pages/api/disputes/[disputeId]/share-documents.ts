@@ -21,7 +21,12 @@ export default async function handler(
   switch (method) {
     case "POST":
       try {
-        const form = formidable({ multiples: true });
+        const form = formidable({ 
+          multiples: true,
+          keepExtensions: true,
+        });
+
+        // Parse form data
         const [fields, files] = await new Promise<[formidable.Fields, formidable.Files]>((resolve, reject) => {
           form.parse(req, (err, fields, files) => {
             if (err) reject(err);
@@ -29,33 +34,53 @@ export default async function handler(
           });
         });
 
-        // Validate recipient types
-        const recipientType = fields.recipientType as string[];
-        if (!recipientType || !recipientType.length) {
+        console.log('Received fields:', fields);
+        console.log('Received files:', files);
+
+        // Handle files array properly
+        const fileArray = Array.isArray(files.documents) 
+          ? files.documents 
+          : files.documents 
+            ? [files.documents] 
+            : [];
+
+        if (!fileArray.length) {
           return res.status(400).json({
-            message: "At least one recipient type is required"
+            message: "At least one document is required"
           });
         }
 
         // Convert files to buffer for storage
-        const documents = Array.isArray(files.documents) ? files.documents : [files.documents];
         const documentBuffers = await Promise.all(
-          documents.map(async (file) => {
+          fileArray.map(async (file) => {
+            if (!file.filepath) {
+              throw new Error(`Invalid file object: ${JSON.stringify(file)}`);
+            }
             const content = await fs.readFile(file.filepath);
             return {
-              filename: file.originalFilename,
+              filename: file.originalFilename || 'unnamed-file',
               buffer: content,
-              mimetype: file.mimetype,
+              mimetype: file.mimetype || 'application/octet-stream',
             };
           })
         );
 
+        console.log('Processing documents:', documentBuffers.length);
+
+        // Extract recipientType from fields
+        const recipientType = Array.isArray(fields['recipientType[]']) 
+          ? fields['recipientType[]'] 
+          : fields['recipientType[]'] 
+            ? [fields['recipientType[]']] 
+            : ['committee']; // default to committee if not specified
+
+        // Call service with proper parameters
         const result = await DisputeService.shareDocuments(
           disputeId as string,
           {
             documents: documentBuffers,
             recipientType: recipientType as ('committee' | 'defendant' | 'claimant')[],
-            message: fields.message as string,
+            message: fields.message ? String(fields.message) : undefined,
           }
         );
 
@@ -65,7 +90,7 @@ export default async function handler(
         });
       } catch (error: any) {
         console.error('Error in POST /disputes/[disputeId]/share-documents:', error);
-        return res.status(500).json({ message: error.message });
+        return res.status(400).json({ message: error.message });
       }
     default:
       return res.status(405).json({ message: "Method not allowed" });

@@ -38,7 +38,19 @@ export default class ChatService {
       const validMessages = messages.filter(msg => 
         msg && msg.sender && msg.sender._id && 
         msg.receiver && msg.receiver._id
-      );
+      ).map(msg => {
+        // If message has senderRole, override the sender's level with it
+        if (msg.senderRole) {
+          return {
+            ...msg,
+            sender: {
+              ...msg.sender,
+              level: msg.senderRole
+            }
+          };
+        }
+        return msg;
+      });
 
       console.log('Retrieved messages:', validMessages.length);
       return {
@@ -57,6 +69,12 @@ export default class ChatService {
     receiverId: string;
     message: string;
     attachments?: string[];
+    senderRole?: {
+      role: string;
+      isSwitch: boolean;
+      accountRole?: string;
+      district?: string;
+    };
   }) {
     try {
       console.log('Sending message with data:', {
@@ -64,7 +82,8 @@ export default class ChatService {
         senderId: data.senderId,
         receiverId: data.receiverId,
         messageLength: data.message?.length,
-        attachmentsCount: data.attachments?.length
+        attachmentsCount: data.attachments?.length,
+        senderRole: data.senderRole
       });
 
       // Validate input data
@@ -89,7 +108,8 @@ export default class ChatService {
         sender: new mongoose.Types.ObjectId(data.senderId),
         receiver: new mongoose.Types.ObjectId(data.receiverId),
         message: data.message,
-        attachments: data.attachments || []
+        attachments: data.attachments || [],
+        senderRole: data.senderRole
       });
 
       console.log('Message saved with ID:', chat._id);
@@ -102,6 +122,14 @@ export default class ChatService {
 
       if (!populatedChat) {
         throw new Error('Failed to retrieve populated chat message');
+      }
+
+      // Override sender's level with senderRole if it exists
+      if (data.senderRole) {
+        populatedChat.sender = {
+          ...populatedChat.sender,
+          level: data.senderRole
+        };
       }
 
       console.log('Message populated successfully');

@@ -39,11 +39,15 @@ const renderCustomizedLabel = ({
 };
 
 export default function CasesChart({ data = [] }: { data: any[] }) {
+  console.log('CasesChart data:', data);
+  
+  const filteredData = data.filter(item => item.value > 0);
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart width={400} height={400}>
         <Pie
-          data={data}
+          data={filteredData}
           cx="50%"
           cy="50%"
           labelLine={false}
@@ -52,7 +56,7 @@ export default function CasesChart({ data = [] }: { data: any[] }) {
           fill="#8884d8"
           dataKey="value"
         >
-          {data.map((entry, index) => (
+          {filteredData.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>

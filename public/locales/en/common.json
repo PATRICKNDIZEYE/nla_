@@ -362,5 +362,29 @@
   "For any further assistance, please contact our support team through the contact information provided on our website. We are here to help you with any queries or issues you may have.":"For any further assistance,\nplease contact our support\nteam through the contact\ninformation provided on our\nwebsite. We are here to help\nyou with any queries or\nissues you may have.",
   "Tracking Case":"Tracking Case",
   "Links":"Links",
-  "Contact Us": "Contact us "
+  "Contact Us": "Contact us ",
+  "Please enter a valid defendant phone": "Please enter a valid defendant phone",
+  "Please enter defendant email": "Please enter defendant email",
+  "Please enter a valid email address": "Please enter a valid email address",
+  "Defendant assigned and notified successfully": "Defendant assigned and notified successfully",
+  "Case created but failed to assign defendant": "Case created but failed to assign defendant",
+  "A user with this email already exists": "A user with this email already exists. Please use a different email.",
+  "defendant-guidance": {
+    "welcome": "Welcome to your Defendant Dashboard",
+    "steps": {
+      "title": "Getting Started Guide",
+      "step1": "Review Case Details: Check the dispute information and understand the claim against you",
+      "step2": "View Documents: Access all shared case documents and evidence",
+      "step3": "Communication: Use the chat system to communicate with other parties",
+      "step4": "Track Progress: Monitor case status and updates in real-time",
+      "step5": "Submit Response: Provide your response to the claim when requested"
+    },
+    "tips": {
+      "title": "Helpful Tips",
+      "tip1": "Keep your contact information up to date",
+      "tip2": "Respond promptly to any notifications",
+      "tip3": "Save important documents and communications",
+      "tip4": "Check for case updates regularly"
+    }
+  }
 }

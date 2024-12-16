@@ -52,14 +52,21 @@ export const getSectorStats = createAsyncThunk(
 
 export const getMonthStats = createAsyncThunk(
   "stat/getMonthStats",
-  async ({ startDate, endDate }: { startDate?: string; endDate?: string }) => {
+  async ({ startDate, endDate, userId, role }: { 
+    startDate?: string; 
+    endDate?: string;
+    userId: string;
+    role?: string;
+  }) => {
     try {
       let query = `/disputes/statistics/count-status-month?userId=${userId}`;
-
       if (startDate && endDate) {
         query += `&startDate=${startDate}&endDate=${endDate}`;
       }
-
+      if (role) {
+        query += `&role=${role}`;
+      }
+      console.log('Fetching month stats with query:', query);
       const { data } = await axiosInstance.get<IMonthData[]>(query);
       return data;
     } catch (error) {
@@ -72,12 +79,21 @@ export const getMonthStats = createAsyncThunk(
 
 export const getLevelStats = createAsyncThunk(
   "stat/getLevelStats",
-  async ({ startDate, endDate }: { startDate?: string; endDate?: string }) => {
+  async ({ startDate, endDate, userId, role }: { 
+    startDate?: string; 
+    endDate?: string;
+    userId: string;
+    role?: string;
+  }) => {
     try {
       let query = `/disputes/statistics/count-level?userId=${userId}`;
       if (startDate && endDate) {
         query += `&startDate=${startDate}&endDate=${endDate}`;
       }
+      if (role) {
+        query += `&role=${role}`;
+      }
+      console.log('Fetching level stats with query:', query);
       const { data } = await axiosInstance.get<ILevelData>(query);
       return data;
     } catch (error) {
@@ -90,12 +106,21 @@ export const getLevelStats = createAsyncThunk(
 
 export const getStatusStats = createAsyncThunk(
   "stat/getStatusStats",
-  async ({ startDate, endDate }: { startDate?: string; endDate?: string }) => {
+  async ({ startDate, endDate, userId, role }: { 
+    startDate?: string; 
+    endDate?: string;
+    userId: string;
+    role?: string;
+  }) => {
     try {
       let query = `/disputes/statistics/count-status?userId=${userId}`;
       if (startDate && endDate) {
         query += `&startDate=${startDate}&endDate=${endDate}`;
       }
+      if (role) {
+        query += `&role=${role}`;
+      }
+      console.log('Fetching status stats with query:', query);
       const { data } = await axiosInstance.get<IStatusData>(query);
       return data;
     } catch (error) {

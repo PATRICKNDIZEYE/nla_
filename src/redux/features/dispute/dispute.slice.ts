@@ -173,6 +173,31 @@ export const updateDispute = createAsyncThunk(
   }
 );
 
+export const assignDefendant = createAsyncThunk(
+  "dispute/assignDefendant",
+  async ({ disputeId, defendantData }: { 
+    disputeId: string; 
+    defendantData: {
+      email: string;
+      phoneNumber: string;
+      fullName: string;
+      nationalId?: string;
+    }
+  }) => {
+    try {
+      const { data } = await axiosInstance.post<IDataResponse<IDispute>>(
+        `/disputes/${disputeId}/assign-defendant`,
+        defendantData
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
 const initialState = initialPaginatedState<IDispute>();
 
 const disputeSlice = createSlice({
@@ -313,6 +338,25 @@ const disputeSlice = createSlice({
       });
     });
     builder.addCase(updateDispute.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+    builder.addCase(assignDefendant.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(assignDefendant.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.error = null;
+      state.data.singleData = payload.data;
+      state.data.data = state.data.data.map((dispute) => {
+        if (dispute._id === payload.data._id) {
+          return payload.data;
+        }
+        return dispute;
+      });
+    });
+    builder.addCase(assignDefendant.rejected, (state, { error }) => {
       state.loading = false;
       state.error = error.message;
     });

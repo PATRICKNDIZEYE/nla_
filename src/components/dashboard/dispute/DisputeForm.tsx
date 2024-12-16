@@ -19,7 +19,7 @@ import {
 } from "antd";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import { getParcelInfo } from "@/redux/features/auth/auth.slice";
-import { createDispute } from "@/redux/features/dispute/dispute.slice";
+import { createDispute, assignDefendant } from "@/redux/features/dispute/dispute.slice";
 import { toast } from "react-toastify";
 import { useForm } from "antd/es/form/Form";
 import { useTranslation } from "react-i18next";
@@ -247,30 +247,40 @@ const CaseForm: React.FC = () => {
       const defendant = {
         fullName: values.defendantFullName,
         phoneNumber: values.defendantPhone,
+        email: values.defendantEmail,
       };
-
-      // try {
-      //   const smsText = encodeURIComponent(
-      //       `Hello ${defendant.fullName}, you have a new case. Please follow up.`
-      //   );
-      //   const messageSms = await axios.get(
-      //       `${Keys.SMS_API_URL}?sender=${Keys.SMS_USERNAME}&phoneno=250${defendant.phoneNumber}&text=${smsText}&password=${Keys.SMS_PASSWORD}`
-      //   );
-      //   toast.success(`${t(`${messageSms}` as any)}`);
-      // } catch (error) {
-      //   console.error("SMS sending failed", error);
-      //   toast.error(`${t(`${error}` as any)}`);
-      // }
-
-
-
 
       formData.append("defendant", JSON.stringify(defendant));
       formData.append("userId", user?._id as string);
 
-      const { message } = await dispatch(createDispute(formData)).unwrap();
-      toast.success(`${t(`${message}` as any)}`);
-      onReset();
+      try {
+        // First create the dispute
+        const { message, data: dispute } = await dispatch(createDispute(formData)).unwrap();
+        
+        // Only attempt to assign defendant if we have the dispute ID and email
+        if (dispute?._id && defendant.email) {
+          try {
+            await dispatch(assignDefendant({
+              disputeId: dispute._id,
+              defendantData: {
+                email: defendant.email,
+                phoneNumber: defendant.phoneNumber,
+                fullName: defendant.fullName
+              }
+            })).unwrap();
+            toast.success(t("Defendant assigned and notified successfully"));
+          } catch (error: any) {
+            console.error("Failed to assign defendant:", error);
+            toast.error(t("Case created but failed to assign defendant: ") + error.message);
+          }
+        }
+
+        toast.success(t(message));
+        onReset();
+      } catch (error: any) {
+        console.error("Error creating dispute:", error);
+        toast.error(t(error.message));
+      }
     } catch (error) {
       const { message } = error as Error;
       toast.error(`${t(`${message}` as any)}`);
@@ -579,55 +589,32 @@ const CaseForm: React.FC = () => {
                   name="defendantPhone"
                   label={t("Defendant Phone Number")}
                   rules={[
-                    {
-                      pattern: new RegExp(/^(72|73|78|79)\d{7}$/),
-                      message: t("Please enter a valid defendant phone"),
-                    },
+                    { required: true, message: t("Please enter a valid defendant phone number") },
+                    { pattern: /^[0-9]{9,10}$/, message: t("Please enter a valid defendant phone") }
                   ]}
                 >
                   <Input
-                    style={{ width: "100%" }}
-                    addonBefore="+250"
-                    maxLength={9}
-                    placeholder="7XXXXXXXX"
+                    placeholder="7xxxxxxxx"
+                    prefix="+250"
+                    className="rounded"
                   />
                 </Form.Item>
               </Col>
             </Row>
             <Row gutter={16}>
-              {/* <Col span={12}>
-                <Form.Item
-                  name="invitationProof"
-                  label={t("Proof of invitation")}
-                  rules={[
-                    {
-                      required: true,
-                      message: t("Please upload proof of invitation"),
-                    },
-                  ]}
-                >
-                  <Upload
-                    listType="text"
-                    multiple={false}
-                    maxCount={1}
-                    accept=".pdf,.docx"
-                  >
-                    <Button icon={<UploadOutlined />}>{t("Upload")}</Button>
-                  </Upload>
-                </Form.Item>
-              </Col> */}
               <Col span={12}>
                 <Form.Item
                   name="defendantEmail"
-                  label={t("Defendant Email (Optional)")}
+                  label={t("Defendant Email")}
                   rules={[
-                    {
-                      type: "email",
-                      message: t("The input is not valid E-mail!"),
-                    },
+                    { required: true, message: t("Please enter defendant email") },
+                    { type: 'email', message: t("Please enter a valid email address") }
                   ]}
                 >
-                  <Input type="email" placeholder="email@example.com" />
+                  <Input
+                    placeholder="email@example.com"
+                    className="rounded"
+                  />
                 </Form.Item>
               </Col>
             </Row>

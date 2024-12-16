@@ -85,13 +85,25 @@ export default async function handler(
             }
           }
 
+          // Parse sender role information if provided
+          let senderRole;
+          if (fields.senderRole?.[0]) {
+            try {
+              senderRole = JSON.parse(fields.senderRole[0]);
+              console.log('Parsed sender role:', senderRole);
+            } catch (error) {
+              console.error('Error parsing sender role:', error);
+            }
+          }
+
           console.log('Creating chat message with attachments:', attachments.length);
           const message = await ChatService.sendMessage({
             disputeId: fields.disputeId[0] as string,
             senderId: fields.senderId[0] as string,
             receiverId: fields.receiverId[0] as string,
             message: fields.message[0] as string,
-            attachments
+            attachments,
+            senderRole
           });
 
           console.log('Message created successfully:', message._id);

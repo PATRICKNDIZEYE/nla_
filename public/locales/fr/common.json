@@ -300,7 +300,7 @@
   "Ensuringconflicts": "Assurer une gestion transparente et efficace des conflits liés à la terre.",
   "About LDMS": "A propos de LDMS ",
   "THMS": "Le Système de gestion des\nlitiges fonciers (LDMS) est\nune plateforme innovante\ndéveloppée par l'Autorité\nfoncière nationale pour\nrévolutionner la manière\ndont les litiges fonciers sont\ntraités. Dans un pays en\ncroissance rapide, la\nrésolution efficace et\néquitable des conflits fonciers\nest cruciale pour maintenir\nl'harmonie sociale et\nfavoriser le développement\néconomique. LDMS vise à\noffrir une expérience fluide,\ntransparente et conviviale à\ntoutes les parties prenantes\nimpliquées dans les conflits\nliés à la terre.",
-  "LandOwner": "Que vous soyez propriétaire\nfoncier, professionnel du\ndroit ou représentant du\ngouvernement, LDMS\npropose une suite complète\nd'outils et de ressources\nconçus pour rationaliser le\nprocessus de résolution des\nlitiges. En tirant parti d'une\ntechnologie de pointe, LDMS\ngarantit que chaque cas est\ntraité avec la plus grande\nintégrité, précision et\nrapidité. Notre engagement\nest de maintenir la justice et\nl'équité dans la gestion des\nterres grâce à un système qui\ndonne la priorité à\nl'accessibilité, à l'efficacité et\nà la transparence.",
+  "LandOwner": "Que vous soyez propriétaire\nfoncier, professionnel du\ndroit ou représentant du\ngouvernement, LDMS\npropose une suite complète\nd'outils et de ressources\nconçus pour rationaliser le\nprocessus de résolution des\nlitiges. En tirant parti d'une\ntechnologie de pointe, LDMS\ngarantit que chaque cas est\ntrait�� avec la plus grande\nintégrité, précision et\nrapidité. Notre engagement\nest de maintenir la justice et\nl'équité dans la gestion des\nterres grâce à un système qui\ndonne la priorité à\nl'accessibilité, à l'efficacité et\nà la transparence.",
   "LDMS": "Fonctionnalités de LDMS ",
   "Centralized Database": "Base de donnees centralisee",
   "A comprehensive repository for all land dispute cases.": "Un référentiel complet pour\ntous les cas de litiges\nfonciers.",
@@ -354,5 +354,23 @@
   "For any further assistance, please contact our support team through the contact information provided on our website. We are here to help you with any queries or issues you may have.": "Pour toute assistance\nsupplémentaire, veuillez\ncontacter notre équipe\nd'assistance via les\ninformations de contact\nfournies sur notre site Web.\nNous sommes là pour vous\naider avec toutes les\nquestions ou problèmes que\nvous pourriez avoir .",
   "Tracking Case":"Case de suivi",
   "Links":"Liens",
-  "Contact Us": "Contactez nous "
+  "Contact Us": "Contactez nous ",
+  "defendant-guidance": {
+    "welcome": "Bienvenue sur votre tableau de bord de défendeur",
+    "steps": {
+      "title": "Guide de démarrage",
+      "step1": "Examiner les détails de l'affaire: Vérifiez les informations du litige et comprenez la réclamation contre vous",
+      "step2": "Consulter les documents: Accédez à tous les documents et preuves partagés de l'affaire",
+      "step3": "Communication: Utilisez le système de chat pour communiquer avec les autres parties",
+      "step4": "Suivi des progrès: Surveillez l'état et les mises à jour de l'affaire en temps réel",
+      "step5": "Soumettre une réponse: Fournissez votre réponse à la réclamation lorsque demandé"
+    },
+    "tips": {
+      "title": "Conseils utiles",
+      "tip1": "Gardez vos coordonnées à jour",
+      "tip2": "Répondez rapidement aux notifications",
+      "tip3": "Sauvegardez les documents et communications importants",
+      "tip4": "Vérifiez régulièrement les mises à jour de l'affaire"
+    }
+  }
 }

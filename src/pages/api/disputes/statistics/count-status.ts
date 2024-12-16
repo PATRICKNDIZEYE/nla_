@@ -7,26 +7,32 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const { method } = req;
-  const { startDate, endDate, userId } = req.query;
+  const { startDate, endDate, userId, role } = req.query;
   await dbConnect();
 
   switch (method) {
     case "GET":
       try {
+        if (!userId) {
+          return res.status(400).json({ message: "userId is required" });
+        }
+
+        console.log('Fetching status counts with params:', { startDate, endDate, userId, role });
+        
         const data = await DisputeService.countAndGroupByStatus(
           userId as string,
           startDate as string,
-          endDate as string
+          endDate as string,
+          role as string
         );
 
-        return res.status(200).json(data[0]);
+        console.log('Status count response:', data);
+        return res.status(200).json(data);
       } catch (error: any) {
+        console.error('Error in count-status API:', error);
         return res.status(500).json({ message: error.message });
       }
-
     default:
-      return res.status(400).json({
-        message: "Method is not allowed",
-      });
+      return res.status(405).json({ message: "Method not allowed" });
   }
 }

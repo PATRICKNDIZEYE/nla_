@@ -352,5 +352,23 @@
   "For any further assistance, please contact our support team through the contact information provided on our website. We are here to help you with any queries or issues you may have.": "Ukeneye ubufasha\nbwisumbuyeho wavugisha\nikipe yacu ukoresheje\namakuru y'uko wayigeraho\nari kuri runo rubuga.",
   "Tracking Case":"Kurikirana Ikirego",
   "Links":"Izindi mbuga",
-  "Contact Us": "Uko watugeraho"
+  "Contact Us": "Uko watugeraho",
+  "defendant-guidance": {
+    "welcome": "Murakaza neza kuri sisitemu y'uregwa",
+    "steps": {
+      "title": "Amabwiriza yo gutangira",
+      "step1": "Reba amakuru y'urubanza: Reba amakuru y'ikirego kandi wumve icyo uregwa",
+      "step2": "Reba inyandiko: Reba inyandiko zose n'ibimenyetso byatanzwe",
+      "step3": "Kuvugana: Koresha sisitemu yo kuvugana n'abandi bantu",
+      "step4": "Gukurikirana: Koresha sisitemu yo gukurikirana aho urubanza rugeze",
+      "step5": "Gutanga ibisubizo: Tanga ibisubizo ku kirego igihe ubisabwe"
+    },
+    "tips": {
+      "title": "Inama z'ingenzi",
+      "tip1": "Guhora uvugurura amakuru yawe yo kuvugana",
+      "tip2": "Gusubiza vuba ubutumwa wakira",
+      "tip3": "Kubika inyandiko n'ubutumwa by'ingenzi",
+      "tip4": "Guhora ureba ko hari amakuru mashya ku rubanza"
+    }
+  }
 }

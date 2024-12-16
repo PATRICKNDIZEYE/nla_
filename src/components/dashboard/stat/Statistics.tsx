@@ -32,23 +32,48 @@ const Statistics = () => {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    if (!user?._id) return;
+    
     Promise.allSettled([
-      dispatch(
-        getStatusStats({ startDate: date?.startDate, endDate: date?.endDate })
-      ),
-      dispatch(
-        getLevelStats({ startDate: date?.startDate, endDate: date?.endDate })
-      ),
-      dispatch(
-        getMonthStats({ startDate: date?.startDate, endDate: date?.endDate })
-      ),
+      dispatch(getStatusStats({ 
+        startDate: date?.startDate, 
+        endDate: date?.endDate,
+        userId: user._id,
+        role: user?.level?.role
+      })),
+      dispatch(getLevelStats({ 
+        startDate: date?.startDate, 
+        endDate: date?.endDate,
+        userId: user._id,
+        role: user?.level?.role
+      })),
+      dispatch(getMonthStats({ 
+        startDate: date?.startDate, 
+        endDate: date?.endDate,
+        userId: user._id,
+        role: user?.level?.role
+      }))
     ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [date, user]);
 
   if (loading) {
     return <Spinner />;
   }
+
+  if (!status && !level && !month) {
+    console.log('No statistics data available:', { status, level, month });
+    return (
+      <div className="text-center p-4">
+        <p className="text-gray-500">{t("No statistics available")}</p>
+      </div>
+    );
+  }
+
+  // Add role-based visibility for components
+  const showAdminStats = user?.level?.role === 'admin' || user?.level?.role === 'manager';
+  const showDistrictStats = showAdminStats || user?.level?.district;
+
+  console.log('Statistics data:', { status, level, month, userRole: user?.level?.role });
 
   return (
     <>
@@ -69,13 +94,15 @@ const Statistics = () => {
               });
             }}
           />
-          <ExportLink
-            href={`/api/disputes/report?userId=${user?._id}&${
-              date?.startDate
-                ? `startDate=${date.startDate}&endDate=${date.endDate}`
-                : ""
-            }`}
-          />
+          {showAdminStats && (
+            <ExportLink
+              href={`/api/disputes/report?userId=${user?._id}&${
+                date?.startDate
+                  ? `startDate=${date.startDate}&endDate=${date.endDate}`
+                  : ""
+              }`}
+            />
+          )}
         </div>
       </div>
       <StatusCards {...{ status, level }} />
@@ -101,10 +128,12 @@ const Statistics = () => {
             ]}
           />
         </div>
-        <div className="flex flex-col bg-white justify-center">
-          <LineCasesChart month={month} />
-        </div>
-        <RecentInvitation />
+        {showDistrictStats && (
+          <div className="flex flex-col bg-white justify-center">
+            <LineCasesChart month={month} />
+          </div>
+        )}
+        {showAdminStats && <RecentInvitation />}
       </div>
 
       <h3 className="font-bold text-lg my-3">{t("Recent Cases")}</h3>

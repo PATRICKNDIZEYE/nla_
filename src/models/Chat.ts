@@ -7,6 +7,12 @@ export interface IChat extends Document {
   message: string;
   attachments?: string[];
   read: boolean;
+  senderRole?: {
+    role: string;
+    isSwitch: boolean;
+    accountRole?: string;
+    district?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +43,12 @@ const ChatSchema = new Schema({
   read: {
     type: Boolean,
     default: false
+  },
+  senderRole: {
+    role: String,
+    isSwitch: Boolean,
+    accountRole: String,
+    district: String
   }
 }, {
   timestamps: true

@@ -28,9 +28,18 @@ export default async function handler(
           nationalId
         });
 
+        // Handle partial success cases
+        if (result.status === 'PARTIAL_SUCCESS') {
+          return res.status(207).json({
+            message: "Defendant assigned but with some notification issues",
+            data: result.dispute,
+            warnings: result.warnings
+          });
+        }
+
         return res.status(200).json({
-          message: "Defendant assigned successfully",
-          data: result
+          message: "Defendant assigned and notified successfully",
+          data: result.dispute
         });
       } catch (error: any) {
         console.error('Error in POST /disputes/[disputeId]/assign-defendant:', error);

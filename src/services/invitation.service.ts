@@ -73,33 +73,50 @@ export default class InvitationService {
       ];
     }
 
-    const filter = generateFilter(params as QueryParams, ["_id"]);
+    // Base filter
+    const filter: Record<string, any> = {
+      isCanceled: { $ne: true }  // Don't show canceled invitations by default
+    };
 
-    if (user?.level?.role === "user") {
-      filter["claimant"] = new mongoose.Types.ObjectId(user._id);
-    } else if (user?.level?.district && user?.level?.role === "manager") {
-      filter["district"] = user?.level?.district?.toLocaleLowerCase();
-    } else {
-      filter["invitedBy.level.role"] = "admin";
+    // Apply date filters if provided
+    if (params?.dateFrom) {
+      filter.createdAt = { $gte: new Date(params.dateFrom) };
     }
+    if (params?.dateTo) {
+      filter.createdAt = { ...filter.createdAt, $lte: new Date(params.dateTo) };
+    }
+
+    // Role-based filtering
+    if (user?.level?.role === "user") {
+      filter.claimant = new mongoose.Types.ObjectId(user._id);
+    } else if (user?.level?.district && user?.level?.role === "manager") {
+      filter.district = user.level.district.toLowerCase();
+    }
+    // For admin users, no additional filters needed - they can see all invitations
 
     const invitations = await Invitation.find({
       ...filter,
       $or,
     })
-      // .populate("dispute dispute.claimant invitedBy")
       .populate([
         {
           path: "dispute",
           populate: {
             path: "claimant",
             model: "User",
+            select: "profile phoneNumber email level"
           },
         },
-        // {
-        //   path: "invitedBy",
-        //   model: "User",
-        // },
+        {
+          path: "invitedBy",
+          model: "User",
+          select: "profile level"
+        },
+        {
+          path: "claimant",
+          model: "User",
+          select: "profile phoneNumber email level"
+        }
       ])
       .sort({ createdAt: -1 })
       .skip(Math.abs(limit * (page - 1)))

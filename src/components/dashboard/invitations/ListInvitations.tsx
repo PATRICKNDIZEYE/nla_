@@ -241,23 +241,29 @@ const ListInvitations = () => {
     {
       title: t("Created At"),
       dataIndex: "createdAt",
-      render: (date: string) => moment(date).format("YYYY-MM-DD HH:mm"),
-      sorter: (a, b) => moment(a.createdAt).unix() - moment(b.createdAt).unix(),
+      render: (date: string) => dayjs(date).format("YYYY-MM-DD HH:mm"),
+      sorter: (a, b) => dayjs(a.createdAt).unix() - dayjs(b.createdAt).unix(),
     },
     {
       title: t("Status"),
       dataIndex: "status",
-      render: (status: string) => (
-        <Tag color={status === "pending" ? "gold" : status === "accepted" ? "green" : "red"}>
-          {t(status.toUpperCase())}
-        </Tag>
-      ),
+      render: (status: string) => {
+        const statusValue = status || 'pending';  // Default to pending if status is undefined
+        const color = statusValue === "pending" ? "gold" 
+                   : statusValue === "accepted" ? "green" 
+                   : "red";
+        return (
+          <Tag color={color}>
+            {t(statusValue.toUpperCase())}
+          </Tag>
+        );
+      },
       filters: [
         { text: t("Pending"), value: "pending" },
         { text: t("Accepted"), value: "accepted" },
         { text: t("Rejected"), value: "rejected" },
       ],
-      onFilter: (value: string, record) => record.status === value,
+      onFilter: (value: string, record) => record.status === value || (!record.status && value === 'pending'),
     },
   ];
 

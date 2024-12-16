@@ -146,6 +146,33 @@ export const shareDocuments = createAsyncThunk(
   }
 );
 
+export const updateDispute = createAsyncThunk(
+  "dispute/updateDispute",
+  async ({ disputeId, formData, userId }: { disputeId: string; formData: FormData; userId: string }) => {
+    try {
+      const status = formData.get('status');
+      if (!status) {
+        throw new Error('Please provide status');
+      }
+
+      const { data } = await axiosInstance.put<IDataResponse<IDispute>>(
+        `/disputes/${disputeId}?userId=${userId}&status=${status}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      return data;
+    } catch (error) {
+      const err = error as ResponseError;
+      const message = err.response?.data.message || err.message;
+      throw new Error(message);
+    }
+  }
+);
+
 const initialState = initialPaginatedState<IDispute>();
 
 const disputeSlice = createSlice({
@@ -267,6 +294,25 @@ const disputeSlice = createSlice({
       }
     });
     builder.addCase(shareDocuments.rejected, (state, { error }) => {
+      state.loading = false;
+      state.error = error.message;
+    });
+    builder.addCase(updateDispute.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(updateDispute.fulfilled, (state, { payload }) => {
+      state.loading = false;
+      state.error = null;
+      state.data.singleData = payload.data;
+      state.data.data = state.data.data.map((dispute) => {
+        if (dispute._id === payload.data._id) {
+          return payload.data;
+        }
+        return dispute;
+      });
+    });
+    builder.addCase(updateDispute.rejected, (state, { error }) => {
       state.loading = false;
       state.error = error.message;
     });

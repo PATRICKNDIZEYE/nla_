@@ -12,8 +12,12 @@ import {
   Tag,
   Tour,
   Upload,
+  Tooltip,
+  Row,
+  Col,
+  Select
 } from "antd";
-import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
+import { PlusOutlined, UploadOutlined, EditOutlined, LockOutlined } from "@ant-design/icons";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
@@ -28,6 +32,8 @@ import {
   clearDispute,
   getAllDisputes,
   updateStatus,
+  getDisputeById,
+  updateDispute
 } from "@/redux/features/dispute/dispute.slice";
 import { IDispute } from "@/@types/dispute.type";
 import { formatPhoneNumber } from "@/utils/helpers/function";
@@ -39,6 +45,7 @@ import { useTranslation } from "react-i18next";
 import { useSystemTour } from "@/components/hooks/tour";
 import { useRouter } from "next/router";
 import TableSingleCaseView from "./single/TableSingleCaseView";
+import { canEditCase } from '@/utils/helpers/permissionHelpers';
 
 const { Search } = Input;
 
@@ -48,6 +55,41 @@ const defaultExpandable: ExpandableConfig<IDispute> = {
       <TableSingleCaseView singleData={record} />
     </div>
   ),
+};
+
+type CaseStatus = "processing" | "rejected" | "resolved" | "withdrawn" | "open";
+
+const isEditable = (status: CaseStatus, userRole: string, createdBy: string, currentUserId: string) => {
+  console.log('Checking edit permissions:', {
+    status,
+    userRole,
+    createdBy,
+    currentUserId,
+    isAdmin: userRole === 'admin' || userRole === 'superadmin',
+    isCreator: currentUserId === createdBy,
+    isManager: userRole === 'manager',
+    hasCreatorId: !!createdBy,
+    hasCurrentUserId: !!currentUserId
+  });
+
+  // Super admin or admin can edit any case
+  if (userRole === 'superadmin' || userRole === 'admin') {
+    return true;
+  }
+
+  // Regular user can edit their own cases if:
+  // 1. They created it (createdBy matches currentUserId) OR they are the claimant
+  // 2. Status is not processing
+  if (createdBy && currentUserId && currentUserId === createdBy && status !== 'processing') {
+    return true;
+  }
+
+  // District manager can edit cases in their district except processing ones
+  if (userRole === 'manager' && status !== 'processing') {
+    return true;
+  }
+
+  return false;
 };
 
 const CaseManagement = () => {
@@ -73,6 +115,10 @@ const CaseManagement = () => {
       pageSize: 10,
     },
   });
+
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [editForm] = Form.useForm();
 
   const handleTableChange = (
     pagination: TablePaginationConfig,
@@ -432,6 +478,149 @@ const CaseManagement = () => {
     });
   };
 
+  const renderEditButton = (record: IDispute) => {
+    // Extract createdBy ID, handling both object and string cases
+    const createdById = record.createdBy?._id || record.createdBy || record.claimant?._id;
+    
+    console.log('Edit button data:', {
+      status: record.status,
+      userRole: user?.level?.role,
+      createdBy: createdById,
+      currentUserId: user?._id,
+      record,
+      claimantId: record.claimant?._id,
+      fullRecord: record
+    });
+
+    const canEdit = isEditable(
+      record.status as CaseStatus,
+      user?.level?.role || 'user',
+      createdById,
+      user?._id
+    );
+
+    return (
+      <Tooltip title={canEdit ? t("Edit Case") : t("Cannot edit case in current status")}>
+        <Button
+          type="link"
+          icon={canEdit ? <EditOutlined /> : <LockOutlined />}
+          onClick={() => canEdit && handleEdit(record)}
+          disabled={!canEdit}
+        >
+          {t("Edit")}
+        </Button>
+      </Tooltip>
+    );
+  };
+
+  const handleEdit = async (record: IDispute) => {
+    try {
+      // Fetch the latest dispute data
+      const result = await dispatch(getDisputeById(record._id)).unwrap();
+      const dispute = result.data;
+      
+      console.log('Fetched dispute data:', dispute);
+      
+      setSelectedCase(dispute);
+      editForm.setFieldsValue({
+        claimId: dispute.claimId,
+        status: dispute.status,
+        disputeType: dispute.disputeType,
+        upiNumber: dispute.upiNumber,
+        description: dispute.description,
+        location: dispute.location || dispute.land?.address?.string,
+        additionalNotes: dispute.additionalNotes,
+        rejectionReason: dispute.rejectionReason,
+        // Handle existing attachments if any
+        attachments: dispute.attachments?.map(attachment => ({
+          uid: attachment._id,
+          name: attachment.name,
+          status: 'done',
+          url: attachment.url
+        }))
+      });
+
+      // Add debug logging
+      console.log('Form values set:', {
+        formValues: editForm.getFieldsValue(),
+        dispute,
+        selectedCase: dispute
+      });
+
+      setIsEditModalVisible(true);
+    } catch (error) {
+      console.error("Error fetching dispute details:", error);
+      toast.error(t("Failed to load dispute details"));
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const values = await editForm.validateFields();
+      
+      // Create FormData for the update
+      const formData = new FormData();
+      
+      // Add basic fields
+      formData.append('status', selectedCase.status); // Add current status
+      formData.append('disputeType', values.disputeType);
+      formData.append('upiNumber', values.upiNumber);
+      formData.append('description', values.description);
+      formData.append('location', values.location);
+      if (values.additionalNotes) {
+        formData.append('additionalNotes', values.additionalNotes);
+      }
+
+      // Handle file attachments
+      if (values.attachments?.fileList) {
+        const files = values.attachments.fileList;
+        files.forEach((file: any) => {
+          if (file.originFileObj) {
+            // Check file size
+            if (file.size > 10 * 1024 * 1024) {
+              throw new Error(t("File size should not exceed 10MB"));
+            }
+            formData.append('attachments', file.originFileObj);
+          }
+        });
+      }
+
+      // Add debug logging
+      console.log('Updating dispute with data:', {
+        disputeId: selectedCase._id,
+        userId: user?._id,
+        status: selectedCase.status,
+        values,
+        formDataEntries: Array.from(formData.entries()).map(([key, value]) => ({
+          key,
+          value: value instanceof File ? `File: ${value.name}` : value
+        }))
+      });
+
+      if (!user?._id) {
+        throw new Error(t("User ID not found"));
+      }
+
+      await dispatch(updateDispute({
+        disputeId: selectedCase._id,
+        formData,
+        userId: user._id
+      })).unwrap();
+
+      toast.success(t("Case updated successfully"));
+      setIsEditModalVisible(false);
+      editForm.resetFields();
+      fetchData(); // Refresh the list
+    } catch (error) {
+      console.error("Case update error:", error);
+      if (error.message) {
+        toast.error(error.message);
+      } else {
+        toast.error(t("Failed to update case"));
+      }
+    }
+  };
+
   const columns: ColumnsType<IDispute> = [
     {
       title: t("Case ID"),
@@ -526,6 +715,7 @@ const CaseManagement = () => {
       key: "action",
       render: (_, record) => (
         <Space size="middle">
+          {renderEditButton(record)}
           {userRole === "user" &&
             ["resolved", "rejected"].includes(record.status!) && (
               <button
@@ -735,6 +925,126 @@ const CaseManagement = () => {
           }, null, 2)}
         </pre>
       </div>
+      <Modal
+        title={t("Edit Case")}
+        open={isEditModalVisible}
+        onOk={handleSaveEdit}
+        onCancel={() => {
+          setIsEditModalVisible(false);
+          editForm.resetFields();
+        }}
+        width={800}
+        destroyOnClose
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          initialValues={{ status: selectedCase?.status }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="claimId"
+                label={t("Case ID")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="status"
+                label={t("Status")}
+              >
+                <Input disabled className="uppercase" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="disputeType"
+                label={t("Dispute Type")}
+                rules={[{ required: true, message: t("Please select dispute type") }]}
+              >
+                <Select disabled={selectedCase?.status === "processing"}>
+                  <Select.Option value="boundary">{t("Boundary Dispute")}</Select.Option>
+                  <Select.Option value="ownership">{t("Ownership Dispute")}</Select.Option>
+                  <Select.Option value="inheritance">{t("Inheritance Dispute")}</Select.Option>
+                  <Select.Option value="other">{t("Other")}</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="upiNumber"
+                label={t("UPI Number")}
+                rules={[{ required: true, message: t("Please enter UPI number") }]}
+              >
+                <Input disabled={selectedCase?.status === "processing"} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="description"
+            label={t("Case Description")}
+            rules={[{ required: true, message: t("Please enter case description") }]}
+          >
+            <Input.TextArea 
+              rows={4} 
+              disabled={selectedCase?.status === "processing"}
+              maxLength={1000}
+              showCount
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="location"
+            label={t("Location")}
+            rules={[{ required: true, message: t("Please enter location") }]}
+          >
+            <Input disabled={selectedCase?.status === "processing"} />
+          </Form.Item>
+
+          <Form.Item
+            name="attachments"
+            label={t("Documents")}
+            extra={t("Only PDF files. Max 10MB per file")}
+          >
+            <Upload
+              listType="text"
+              multiple
+              maxCount={5}
+              accept=".pdf"
+              beforeUpload={() => false}
+            >
+              <Button icon={<UploadOutlined />}>{t("Upload")}</Button>
+            </Upload>
+          </Form.Item>
+
+          {selectedCase?.status === "rejected" && (
+            <Form.Item
+              name="rejectionReason"
+              label={t("Rejection Reason")}
+            >
+              <Input.TextArea disabled rows={3} />
+            </Form.Item>
+          )}
+
+          <Form.Item
+            name="additionalNotes"
+            label={t("Additional Notes")}
+          >
+            <Input.TextArea 
+              rows={3} 
+              maxLength={500}
+              showCount
+              placeholder={t("Any additional information about the case")}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 };

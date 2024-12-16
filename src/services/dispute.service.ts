@@ -83,6 +83,7 @@ export default class DisputeService {
       const page = Number(params?.page || 1);
       const limit = Number(params?.limit || 10);
       const search = params?.search;
+      const level = params?.level || params?.filter?.level; // Handle both direct level param and filter.level
 
       // Base query object
       const query: Record<string, any> = {
@@ -107,78 +108,35 @@ export default class DisputeService {
       }
 
       // Handle level filter
-      if (params?.filter?.level) {
-        if (params.filter.level === "nla") {
+      if (level) {
+        console.log('Applying level filter:', level);
+        
+        // Remove any existing level filters
+        delete query.level;
+        delete query.$or;
+        
+        if (level === "nla") {
+          // For NLA level, match exactly "nla" (case insensitive)
           query.level = "nla";
-        } else if (params.filter.level === "district") {
+          console.log('Filtering for NLA cases only');
+        } else if (level === "district") {
+          // For district level, include district and unset levels
           query.$or = [
             { level: "district" },
             { level: { $exists: false } },
             { level: "" },
             { level: null }
           ];
+          console.log('Filtering for district cases');
         }
       }
 
-      // Handle search
-      if (search) {
-        query.$or = [
-          { claimId: { $regex: search, $options: 'i' } },
-          { 'land.districtName': { $regex: search, $options: 'i' } },
-          { 'land.sectorName': { $regex: search, $options: 'i' } }
-        ];
-      }
-
+      // Log the query before execution
       console.log('Final query:', JSON.stringify(query, null, 2));
 
-      // Get total counts for all disputes (not just paginated)
-      const [totalCount, levelCounts] = await Promise.all([
-        Dispute.countDocuments(query),
-        Dispute.aggregate([
-          { $match: query },
-          {
-            $group: {
-              _id: null,
-              nla: {
-                $sum: {
-                  $cond: [{ $eq: ["$level", "nla"] }, 1, 0]
-                }
-              },
-              district: {
-                $sum: {
-                  $cond: [{ $eq: ["$level", "district"] }, 1, 0]
-                }
-              }
-            }
-          }
-        ])
-      ]);
-
-      console.log('Total counts:', {
-        total: totalCount,
-        levels: levelCounts[0] || { nla: 0, district: 0 }
-      });
-
-      if (totalCount === 0) {
-        console.log('No disputes found matching the query');
-        return { 
-          data: [], 
-          pagination: {
-            totalPages: 0,
-            currentPage: page,
-            totalItems: 0,
-            hasNextPage: false,
-            hasPrevPage: false
-          },
-          totalItems: 0,
-          count: 0,
-          levelCounts: {
-            nla: 0,
-            district: 0,
-            total: 0
-          }
-        };
-      }
+      // Get total counts
+      const totalCount = await Dispute.countDocuments(query);
+      console.log('Total matching disputes:', totalCount);
 
       // Execute query with pagination
       const disputes = await Dispute.find(query)
@@ -202,12 +160,22 @@ export default class DisputeService {
 
       console.log('Disputes found:', disputes.length);
       
-      // Process disputes to ensure consistent data structure
+      // Log sample disputes for verification
+      if (disputes.length > 0) {
+        console.log('Sample disputes:', disputes.slice(0, 2).map(d => ({
+          id: d._id,
+          level: d.level,
+          claimId: d.claimId,
+          status: d.status
+        })));
+      }
+
+      // Process disputes
       const processedDisputes = disputes.map(dispute => ({
         ...dispute,
         _id: dispute._id.toString(),
-        status: dispute.status?.toLowerCase(), // Normalize status to lowercase
-        level: dispute.level === "nla" ? "nla" : "district", // Normalize level
+        status: dispute.status?.toLowerCase(),
+        level: dispute.level,  // Keep original level value
         claimant: dispute.claimant ? {
           ...dispute.claimant,
           _id: dispute.claimant._id.toString()
@@ -222,13 +190,6 @@ export default class DisputeService {
         } : undefined
       }));
 
-      const counts = levelCounts[0] || { nla: 0, district: 0 };
-      console.log('Level counts for response:', {
-        nla: counts.nla,
-        district: counts.district,
-        total: totalCount
-      });
-
       return { 
         data: processedDisputes, 
         pagination: {
@@ -241,8 +202,8 @@ export default class DisputeService {
         totalItems: totalCount,
         count: processedDisputes.length,
         levelCounts: {
-          nla: counts.nla,
-          district: counts.district,
+          nla: disputes.filter(d => d.level === "nla").length,
+          district: disputes.filter(d => d.level !== "nla").length,
           total: totalCount
         }
       };

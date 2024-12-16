@@ -519,18 +519,40 @@ const CaseManagement = () => {
       const result = await dispatch(getDisputeById(record._id)).unwrap();
       const dispute = result.data;
       
-      console.log('Fetched dispute data:', dispute);
+      console.log('Fetched dispute data for edit:', dispute);
       
       setSelectedCase(dispute);
+
+      // Log the description specifically
+      console.log('Case description:', {
+        description: dispute.description,
+        caseDetails: dispute.caseDetails,
+        fullDispute: dispute
+      });
+
       editForm.setFieldsValue({
         claimId: dispute.claimId,
         status: dispute.status,
         disputeType: dispute.disputeType,
         upiNumber: dispute.upiNumber,
-        description: dispute.description,
+        description: dispute.description || dispute.caseDetails, // Try both possible fields
         location: dispute.location || dispute.land?.address?.string,
         additionalNotes: dispute.additionalNotes,
         rejectionReason: dispute.rejectionReason,
+        createdAt: dispute.createdAt,
+        level: dispute.level,
+        claimant: dispute.claimant?.profile ? 
+          `${dispute.claimant.profile.Surnames} ${dispute.claimant.profile.ForeName}` : 
+          dispute.claimant?.fullName,
+        defendant: dispute.defendant?.profile ? 
+          `${dispute.defendant.profile.Surnames} ${dispute.defendant.profile.ForeName}` : 
+          dispute.defendant?.fullName,
+        landAddress: dispute.land?.address?.string,
+        districtName: dispute.land?.districtName,
+        provinceName: dispute.land?.provinceName,
+        sectorName: dispute.land?.sectorName,
+        cellName: dispute.land?.cellName,
+        villageName: dispute.land?.villageName,
         // Handle existing attachments if any
         attachments: dispute.attachments?.map(attachment => ({
           uid: attachment._id,
@@ -540,9 +562,10 @@ const CaseManagement = () => {
         }))
       });
 
-      // Add debug logging
-      console.log('Form values set:', {
+      // Add debug logging for form values after setting
+      console.log('Form values set for edit:', {
         formValues: editForm.getFieldsValue(),
+        descriptionField: editForm.getFieldValue('description'),
         dispute,
         selectedCase: dispute
       });
@@ -963,6 +986,25 @@ const CaseManagement = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
+                name="claimant"
+                label={t("Claimant")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="defendant"
+                label={t("Defendant")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
                 name="disputeType"
                 label={t("Dispute Type")}
                 rules={[{ required: true, message: t("Please select dispute type") }]}
@@ -999,9 +1041,66 @@ const CaseManagement = () => {
             />
           </Form.Item>
 
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                name="landAddress"
+                label={t("Land Address")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="provinceName"
+                label={t("Province")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="districtName"
+                label={t("District")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="sectorName"
+                label={t("Sector")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="cellName"
+                label={t("Cell")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="villageName"
+                label={t("Village")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <Form.Item
             name="location"
-            label={t("Location")}
+            label={t("Current Location")}
             rules={[{ required: true, message: t("Please enter location") }]}
           >
             <Input disabled={selectedCase?.status === "processing"} />
@@ -1043,6 +1142,25 @@ const CaseManagement = () => {
               placeholder={t("Any additional information about the case")}
             />
           </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="createdAt"
+                label={t("Created At")}
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="level"
+                label={t("Case Level")}
+              >
+                <Input disabled className="uppercase" />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </>

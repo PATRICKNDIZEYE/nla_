@@ -21,6 +21,13 @@ const LoginForm = () => {
     try {
       // First step: Validate credentials
       const result = await dispatch(login(values)).unwrap();
+      
+      // Check if the response indicates a suspended account
+      if (result.errorType === 'ACCOUNT_SUSPENDED') {
+        toast.error(t("Sorry, your account is suspended. Please contact admin for more information."));
+        return;
+      }
+
       setTempUserId(result.user._id);
       
       // Second step: Request OTP
@@ -32,7 +39,12 @@ const LoginForm = () => {
       setShowOTPInput(true);
       toast.success(t("OTP sent successfully"));
     } catch (error: any) {
-      toast.error(error.message);
+      // Check if it's a suspended account error
+      if (error.message?.toLowerCase().includes('suspended')) {
+        toast.error(t("Sorry, your account is suspended. Please contact admin for more information."));
+      } else {
+        toast.error(error.message);
+      }
     }
   };
 

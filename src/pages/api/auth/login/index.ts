@@ -19,18 +19,29 @@ export default async function handler(
           });
         }
 
-        const user = await UserService.login(phoneNumber, password, otp);
+        try {
+          const user = await UserService.login(phoneNumber, password, otp);
 
-        const token = UserService.signInToken({
-          id: user._id,
-          phoneNumber: user.phoneNumber,
-          role: user.level.role,
-        });
+          const token = UserService.signInToken({
+            id: user._id,
+            phoneNumber: user.phoneNumber,
+            role: user.level.role,
+          });
 
-        return res.status(200).json({
-          message: "Login successful",
-          data: { user, token },
-        });
+          return res.status(200).json({
+            message: "Login successful",
+            data: { user, token },
+          });
+        } catch (error: any) {
+          // Check if it's a suspended account error
+          if (error.message.includes('suspended')) {
+            return res.status(403).json({
+              message: error.message,
+              errorType: 'ACCOUNT_SUSPENDED'
+            });
+          }
+          throw error; // Re-throw other errors
+        }
       } catch (error: any) {
         return res.status(400).json({
           message: error.message,

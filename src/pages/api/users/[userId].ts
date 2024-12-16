@@ -32,9 +32,31 @@ export default async function handler(
       }
     case "PUT":
       try {
-        const userData = req.body;
+        // Validate required fields
+        const { level } = req.body;
+        if (!level || !level.role) {
+          return res.status(400).json({
+            message: "Level and role are required",
+          });
+        }
+
+        // Validate role value
+        const validRoles = ['user', 'admin', 'manager'];
+        if (!validRoles.includes(level.role)) {
+          return res.status(400).json({
+            message: "Invalid role value",
+          });
+        }
+
+        // If role is manager, district is required
+        if (level.role === 'manager' && !level.district) {
+          return res.status(400).json({
+            message: "District is required for manager role",
+          });
+        }
+
         const data = await UserService.updateLevel(
-          userData,
+          level,
           userId as string,
           updatedBy as string
         );

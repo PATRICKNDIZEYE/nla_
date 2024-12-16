@@ -16,6 +16,11 @@ export default class UserService {
       const user = await User.findOne({ phoneNumber });
       if (!user) throw new Error("Invalid phone number or password");
 
+      // Check account status before proceeding
+      if (user.accountStatus === 'suspended') {
+        throw new Error("Sorry, your account is suspended. Please contact admin for more information.");
+      }
+
       const isMatch = await UserService.comparePassword(password, user.password);
       if (!isMatch) throw new Error("Invalid phone number or password");
 
@@ -190,20 +195,46 @@ export default class UserService {
   }
 
   static async updateLevel(level: Users["level"], userId: string, updatedBy: string) {
-    const user = await User.findById(userId);
-    if (!user) throw new Error("User not found");
+    try {
+      const user = await User.findById(userId);
+      if (!user) throw new Error("User not found");
 
-    user.level = level;
-    await user.save();
+      // Validate level object
+      if (!level || !level.role) {
+        throw new Error("Level and role are required");
+      }
 
-    LogService.create({
-      user: updatedBy,
-      action: `Updated level to ${level.role}`,
-      targettype: `User`,
-      target: user._id,
-    });
+      // Validate role value
+      const validRoles = ['user', 'admin', 'manager'];
+      if (!validRoles.includes(level.role)) {
+        throw new Error("Invalid role value");
+      }
 
-    return user;
+      // If role is manager, district is required
+      if (level.role === 'manager' && !level.district) {
+        throw new Error("District is required for manager role");
+      }
+
+      // Update user level
+      user.level = {
+        role: level.role,
+        district: level.district || null
+      };
+
+      await user.save();
+
+      // Log the action
+      await LogService.create({
+        user: updatedBy,
+        action: `Updated level to ${level.role}${level.district ? ` for district ${level.district}` : ''}`,
+        targettype: `User`,
+        target: user._id,
+      });
+
+      return user;
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
   }
 
   static async suspendAccount(

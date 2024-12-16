@@ -130,15 +130,24 @@ const ListUsers: React.FC = () => {
 
   const handleUpdateRole = async (values: any) => {
     try {
+      // Ensure we have a valid role
+      if (!values.role) {
+        throw new Error(t("Please select a role"));
+      }
+
+      // Prepare the level object
+      const level = {
+        role: values.role,
+        district: values.district || null
+      };
+
       await dispatch(
-        updateUser({
-          ...current!,
-          level: {
-            role: values.role,
-            district: values.district,
-          },
+        changeUserLevel({
+          userId: current!._id,
+          level: level
         })
       ).unwrap();
+      
       toast.success(t("Role updated successfully"));
       setIsModalOpen(false);
       form.resetFields();

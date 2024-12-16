@@ -7,26 +7,31 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const { method } = req;
-  const { startDate, endDate, userId } = req.query;
+  const { startDate, endDate, userId, role } = req.query;
   await dbConnect();
 
   switch (method) {
     case "GET":
       try {
+        console.log('Fetching level counts with params:', { startDate, endDate, userId, role });
+        
         const data = await DisputeService.countAndGroupByLevel(
           userId as string,
           startDate as string,
-          endDate as string
+          endDate as string,
+          role as string
         );
 
-        return res.status(200).json(data[0]);
+        console.log('Level count response:', data);
+        return res.status(200).json(data);
       } catch (error: any) {
+        console.error('Error in count-level API:', error);
         return res.status(500).json({ message: error.message });
       }
 
     default:
-      return res.status(400).json({
-        message: "Method is not allowed",
+      return res.status(405).json({
+        message: "Method not allowed"
       });
   }
 }

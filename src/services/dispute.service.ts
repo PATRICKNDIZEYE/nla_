@@ -76,9 +76,9 @@ export default class DisputeService {
       console.log('Fetching disputes with params:', params);
       
       const user = await User.findById(params?.userId);
-      const role = params?.role;
+      const role = user?.level?.role;
       const targetUserId = params?.targetUserId;
-      console.log('User found:', user?._id, 'Role from session:', role, 'Target User:', targetUserId);
+      console.log('User found:', user?._id, 'Role:', role, 'Target User:', targetUserId);
       
       const page = Number(params?.page || 1);
       const limit = Number(params?.limit || 10);
@@ -96,55 +96,68 @@ export default class DisputeService {
         // Regular role-based filtering
         if (role === "user") {
           query.claimant = new mongoose.Types.ObjectId(params?.userId || '');
+        } else if (role === "admin" || role === "manager") {
+          // Admin and manager can see all cases - no additional filters needed
+          console.log('Admin/Manager role - showing all cases');
         } else if (user?.level?.district) {
+          // District user filtering
           query.district = user.level.district.toLowerCase();
-        } else if (role === "admin") {
-          query.level = "nla";
+          query.level = { $ne: "nla" }; // Exclude NLA cases for district users
         }
       }
 
-      // Handle level filter after role-based filtering
-      if (params?.filter?.level && role === "admin") {
-        query.level = params.filter.level;
+      // Handle level filter
+      if (params?.filter?.level) {
+        if (params.filter.level === "nla") {
+          query.level = "nla";
+        } else if (params.filter.level === "district") {
+          query.$or = [
+            { level: "district" },
+            { level: { $exists: false } },
+            { level: "" },
+            { level: null }
+          ];
+        }
       }
 
-      // Add any additional filters from params
-      if (params?.filter) {
-        Object.entries(params.filter).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '' && key !== 'level') {
-            if (key === 'claimant') {
-              query[key] = new mongoose.Types.ObjectId(value as string);
-            } else {
-              query[key] = value;
-            }
-          }
-        });
-      }
-
-      console.log('Query after filters:', JSON.stringify(query, null, 2));
-
-      // Add status filter if provided
-      if (params?.status) {
-        query.status = params.status;
-      }
-
-      // Add search conditions if search term provided
+      // Handle search
       if (search) {
         query.$or = [
-          { upiNumber: { $regex: search, $options: "i" } },
-          { status: { $regex: search, $options: "i" } },
-          { claimId: { $regex: search, $options: "i" } },
-          { disputeType: { $regex: search, $options: "i" } },
-          { "defendant.fullName": { $regex: search, $options: "i" } },
-          { "defendant.phoneNumber": { $regex: search, $options: "i" } }
+          { claimId: { $regex: search, $options: 'i' } },
+          { 'land.districtName': { $regex: search, $options: 'i' } },
+          { 'land.sectorName': { $regex: search, $options: 'i' } }
         ];
       }
 
       console.log('Final query:', JSON.stringify(query, null, 2));
 
-      // First check if there are any disputes matching the query
-      const totalCount = await Dispute.countDocuments(query);
-      console.log('Total matching disputes:', totalCount);
+      // Get total counts for all disputes (not just paginated)
+      const [totalCount, levelCounts] = await Promise.all([
+        Dispute.countDocuments(query),
+        Dispute.aggregate([
+          { $match: query },
+          {
+            $group: {
+              _id: null,
+              nla: {
+                $sum: {
+                  $cond: [{ $eq: ["$level", "nla"] }, 1, 0]
+                }
+              },
+              district: {
+                $sum: {
+                  $cond: [{ $eq: ["$level", "district"] }, 1, 0]
+                }
+              }
+            }
+          }
+        ])
+      ]);
+
+      console.log('Total counts:', {
+        total: totalCount,
+        levels: levelCounts[0] || { nla: 0, district: 0 }
+      });
 
       if (totalCount === 0) {
         console.log('No disputes found matching the query');
@@ -158,12 +171,17 @@ export default class DisputeService {
             hasPrevPage: false
           },
           totalItems: 0,
-          count: 0
+          count: 0,
+          levelCounts: {
+            nla: 0,
+            district: 0,
+            total: 0
+          }
         };
       }
 
       // Execute query with pagination
-      const claims = await Dispute.find(query)
+      const disputes = await Dispute.find(query)
         .populate({
           path: 'claimant',
           select: 'profile phoneNumber nationalId email level'
@@ -182,44 +200,37 @@ export default class DisputeService {
         .limit(limit)
         .lean();
 
-      console.log('Disputes found:', claims.length);
+      console.log('Disputes found:', disputes.length);
       
-      // Add overdue days calculation and ensure proper data structure
-      const disputes: IDispute[] = claims.map(dispute => {
-        const defendant = dispute.defendant as IDefendant;
-        return {
-          ...dispute,
-          _id: dispute._id.toString(),
-          overdueDays: DisputeService.calculateOverdueDays(dispute as Disputes),
-          defendant: defendant ? {
-            ...defendant,
-            _id: defendant._id?.toString() || defendant.id,
-            fullName: defendant.fullName || `${defendant.ForeName || ''} ${defendant.Surnames || ''}`.trim(),
-            email: defendant.email,
-            phoneNumber: defendant.phoneNumber,
-            status: defendant.status,
-            assignedAt: defendant.assignedAt,
-            signupToken: defendant.signupToken
-          } : undefined,
-          claimant: dispute.claimant ? {
-            ...dispute.claimant,
-            _id: dispute.claimant._id.toString()
-          } : undefined,
-          disputeType: dispute.disputeType,
-          openedBy: dispute.openedBy,
-          resolvedBy: dispute.resolvedBy,
-          createdAt: dispute.createdAt ? new Date(dispute.createdAt) : undefined,
-          lastUpdated: dispute.lastUpdated ? new Date(dispute.lastUpdated) : undefined
-        } as IDispute;
+      // Process disputes to ensure consistent data structure
+      const processedDisputes = disputes.map(dispute => ({
+        ...dispute,
+        _id: dispute._id.toString(),
+        status: dispute.status?.toLowerCase(), // Normalize status to lowercase
+        level: dispute.level === "nla" ? "nla" : "district", // Normalize level
+        claimant: dispute.claimant ? {
+          ...dispute.claimant,
+          _id: dispute.claimant._id.toString()
+        } : undefined,
+        resolvedBy: dispute.resolvedBy ? {
+          ...dispute.resolvedBy,
+          _id: dispute.resolvedBy._id.toString()
+        } : undefined,
+        openedBy: dispute.openedBy ? {
+          ...dispute.openedBy,
+          _id: dispute.openedBy._id.toString()
+        } : undefined
+      }));
+
+      const counts = levelCounts[0] || { nla: 0, district: 0 };
+      console.log('Level counts for response:', {
+        nla: counts.nla,
+        district: counts.district,
+        total: totalCount
       });
 
-      console.log('Processed disputes:', disputes.length);
-
-      const paginationData = paginate(totalCount, limit, page);
-      console.log('Pagination data:', paginationData);
-
       return { 
-        data: disputes, 
+        data: processedDisputes, 
         pagination: {
           totalPages: Math.ceil(totalCount / limit),
           currentPage: page,
@@ -228,7 +239,12 @@ export default class DisputeService {
           hasPrevPage: page > 1
         },
         totalItems: totalCount,
-        count: disputes.length
+        count: processedDisputes.length,
+        levelCounts: {
+          nla: counts.nla,
+          district: counts.district,
+          total: totalCount
+        }
       };
     } catch (error) {
       console.error('Error in getAllClaims:', error);
@@ -294,12 +310,27 @@ export default class DisputeService {
   
 
   public static createClaim = async (data: any, userId: string) => {
+    // Normalize the level field
+    const normalizedData = {
+      ...data,
+      level: data.level?.toLowerCase() === "nla" ? "nla" : "district",
+      // Ensure district is properly set
+      district: data.land?.districtName?.toLowerCase() || data.district?.toLowerCase()
+    };
+    
     const user = await User.findById(userId);
     if (!user) {
       throw new Error("User account is not found");
     }
+    
+    console.log('Creating claim with normalized data:', {
+      ...normalizedData,
+      level: normalizedData.level,
+      district: normalizedData.district
+    });
+
     const claim = await Dispute.create({
-      ...data,
+      ...normalizedData,
       claimant: userId,
     });
     const { phoneNumber } = user;
@@ -445,10 +476,14 @@ export default class DisputeService {
         $match.claimant = new mongoose.Types.ObjectId(userId);
       } else if (role === "admin" || role === "manager") {
         // Admin and manager can see all cases
-        // No additional filters needed
+        if (user?.level?.district) {
+          // If admin/manager has district, only show their district cases
+          $match.district = user.level.district.toLowerCase();
+        }
       } else if (user?.level?.district) {
         // District user can only see cases in their district
         $match.district = user.level.district.toLowerCase();
+        $match.level = { $ne: "nla" }; // Exclude NLA cases for district users
       }
 
       // Add date range filter if provided
@@ -464,9 +499,22 @@ export default class DisputeService {
       const claims = await Dispute.aggregate([
         { $match },
         {
+          $addFields: {
+            // Normalize status to lowercase and ensure valid status
+            normalizedStatus: {
+              $cond: {
+                if: { $eq: [{ $type: "$status" }, "string"] },
+                then: { $toLower: "$status" },
+                else: "unknown"
+              }
+            }
+          }
+        },
+        {
           $group: {
-            _id: { $toLower: "$status" }, // Convert status to lowercase for consistency
-            count: { $sum: 1 }
+            _id: "$normalizedStatus",
+            count: { $sum: 1 },
+            disputes: { $push: "$$ROOT" } // Collect disputes for debugging
           }
         },
         {
@@ -476,6 +524,13 @@ export default class DisputeService {
               $push: {
                 k: "$_id",
                 v: "$count"
+              }
+            },
+            details: { 
+              $push: { 
+                status: "$_id",
+                count: "$count",
+                disputes: "$disputes"
               }
             }
           }
@@ -494,16 +549,7 @@ export default class DisputeService {
                   closed: 0
                 },
                 {
-                  $arrayToObject: {
-                    $map: {
-                      input: "$data",
-                      as: "item",
-                      in: {
-                        k: "$$item.k",
-                        v: "$$item.v"
-                      }
-                    }
-                  }
+                  $arrayToObject: "$data"
                 }
               ]
             }
@@ -512,6 +558,20 @@ export default class DisputeService {
       ]);
 
       console.log('Status aggregation result:', claims);
+      
+      // Log detailed status breakdown for debugging
+      if (claims.length > 0 && claims[0].details) {
+        console.log('Detailed status breakdown:');
+        claims[0].details.forEach((detail: any) => {
+          console.log(`Status: ${detail.status}, Count: ${detail.count}`);
+          console.log('Sample disputes:', detail.disputes.slice(0, 3).map((d: any) => ({
+            id: d._id,
+            status: d.status,
+            level: d.level,
+            district: d.district
+          })));
+        });
+      }
 
       // If no results, return default structure
       const defaultStats = {
@@ -529,10 +589,15 @@ export default class DisputeService {
         return defaultStats;
       }
 
-      // Ensure all status fields exist
+      // Ensure all status fields exist and values are numbers
       const result = {
         ...defaultStats,
-        ...claims[0]
+        ...Object.fromEntries(
+          Object.entries(claims[0]).map(([key, value]) => [
+            key,
+            typeof value === 'number' ? value : 0
+          ])
+        )
       };
 
       console.log('Final processed result:', result);
@@ -808,7 +873,10 @@ export default class DisputeService {
     role?: string
   ) => {
     try {
+      console.log('\n=== DISPUTE LEVEL COUNT START ===');
       const user = await User.findById(userId);
+      console.log('User Role:', user?.level?.role);
+      
       const $match: Record<string, any> = {
         datetimedeleted: { $exists: false }
       };
@@ -816,11 +884,12 @@ export default class DisputeService {
       // Handle role-based filtering
       if (role === "user") {
         $match.claimant = new mongoose.Types.ObjectId(userId);
-      } else if (role === "admin" || role === "manager") {
-        // Admin and manager can see all cases
-        // No additional filters needed
+        console.log('Filtering for user:', userId);
+      } else if (role === "admin" || role === "manager" || user?.level?.role === "admin") {
+        console.log('Admin/Manager access - showing all cases');
       } else if (user?.level?.district) {
         $match.district = user.level.district.toLowerCase();
+        console.log('District filtering:', user.level.district);
       }
 
       // Add date range filter if provided
@@ -829,84 +898,59 @@ export default class DisputeService {
           $gte: new Date(startDate),
           $lte: new Date(endDate)
         };
+        console.log('Date range:', { startDate, endDate });
       }
 
-      console.log('Level aggregation match:', $match);
+      console.log('Match criteria:', JSON.stringify($match, null, 2));
 
-      const claims = await Dispute.aggregate([
+      const results = await Dispute.aggregate([
         { $match },
         {
-          $group: {
-            _id: {
-              $cond: {
-                if: { $eq: ["$level", "nla"] },
-                then: "nla",
-                else: {
-                  $cond: {
-                    if: { $eq: [{ $toLower: "$level" }, "district"] },
-                    then: "district",
-                    else: "district" // Default to district if not specified
-                  }
+          $facet: {
+            district: [
+              {
+                $match: {
+                  $or: [
+                    { level: "district" },
+                    { level: { $exists: false } },
+                    { level: "" },
+                    { level: null }
+                  ]
                 }
-              }
-            },
-            count: { $sum: 1 }
+              },
+              { $count: "count" }
+            ],
+            nla: [
+              {
+                $match: {
+                  level: "nla"
+                }
+              },
+              { $count: "count" }
+            ]
           }
         },
         {
-          $group: {
-            _id: null,
-            data: {
-              $push: {
-                k: { $toLower: "$_id" },
-                v: "$count"
-              }
-            }
-          }
-        },
-        {
-          $replaceRoot: {
-            newRoot: {
-              $mergeObjects: [
-                { district: 0, nla: 0 },
-                {
-                  $arrayToObject: {
-                    $map: {
-                      input: "$data",
-                      as: "item",
-                      in: {
-                        k: "$$item.k",
-                        v: "$$item.v"
-                      }
-                    }
-                  }
-                }
-              ]
-            }
+          $project: {
+            district: { $ifNull: [{ $arrayElemAt: ["$district.count", 0] }, 0] },
+            nla: { $ifNull: [{ $arrayElemAt: ["$nla.count", 0] }, 0] }
           }
         }
       ]);
 
-      console.log('Level aggregation result:', claims);
+      const counts = results[0] || { district: 0, nla: 0 };
+      
+      // Log detailed counts
+      console.log('\nDISPUTE COUNTS:');
+      console.log('----------------');
+      console.log('NLA Disputes:', counts.nla);
+      console.log('District Disputes:', counts.district);
+      console.log('Total Disputes:', counts.nla + counts.district);
+      console.log('=== DISPUTE LEVEL COUNT END ===\n');
 
-      // If no results, return default structure
-      const defaultStats = { district: 0, nla: 0 };
-
-      if (!claims.length) {
-        console.log('No claims found, returning defaults');
-        return defaultStats;
-      }
-
-      // Ensure all level fields exist
-      const result = {
-        ...defaultStats,
-        ...claims[0]
-      };
-
-      console.log('Final processed result:', result);
-      return result;
+      return counts;
     } catch (error) {
-      console.error('Error in countAndGroupByLevel:', error);
+      console.error('Level count error:', error);
       throw error;
     }
   };
@@ -1400,5 +1444,17 @@ export default class DisputeService {
       console.error('Error in shareDocuments:', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
+  }
+
+  private static normalizeDisputeLevel(dispute: IDispute) {
+    if (!dispute.level) {
+      dispute.level = "district"; // Default value
+    }
+    dispute.level = dispute.level.toLowerCase() === "nla" ? "nla" : "district";
+    return dispute;
+  }
+
+  private static normalizeDistrict(district: string): string {
+    return district?.toLowerCase() ?? "";
   }
 }

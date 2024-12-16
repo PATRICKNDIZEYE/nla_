@@ -15,7 +15,26 @@ const StatusCards = ({ status, level }: Pick<IStat, "level" | "status">) => {
   const showAdminStats = userLevel?.role === 'admin' || userLevel?.role === 'manager';
   const showDistrictStats = showAdminStats || userLevel?.district;
 
-  console.log('StatusCards props:', { status, level, userRole: userLevel?.role });
+  // Add detailed logging
+  console.log('StatusCards Raw Data:', {
+    level,
+    status,
+    userLevel,
+    showAdminStats
+  });
+
+  // Ensure level data is properly structured
+  const levelCounts = {
+    district: typeof level?.district === 'number' ? level.district : 0,
+    nla: typeof level?.nla === 'number' ? level.nla : 0
+  };
+
+  console.log('Processed Level Counts:', levelCounts);
+
+  // Early return if no data and user should see stats
+  if (showAdminStats && (!level || (levelCounts.district === 0 && levelCounts.nla === 0))) {
+    console.log('Admin user but no level data available');
+  }
 
   return (
     <div className="mb-12 grid gap-y-10 gap-x-6 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
@@ -138,7 +157,7 @@ const StatusCards = ({ status, level }: Pick<IStat, "level" | "status">) => {
               </p>
             </div>
             <h2 className="font-bold text-white text-2xl my-4">
-              {(level?.district ?? 0).toLocaleString()}
+              {levelCounts.district.toLocaleString()}
             </h2>
             <Link
               href="/dispute?level=district"
@@ -156,7 +175,7 @@ const StatusCards = ({ status, level }: Pick<IStat, "level" | "status">) => {
               </p>
             </div>
             <h2 className="font-bold text-white text-2xl my-4">
-              {(level?.nla ?? 0).toLocaleString()}
+              {levelCounts.nla.toLocaleString()}
             </h2>
             <Link
               href="/dispute?level=nla"

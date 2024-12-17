@@ -1,23 +1,28 @@
+import { ReactElement } from 'react';
+import { GetServerSideProps } from 'next';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DisputeChat from '@/components/dispute/DisputeChat';
+import type { NextPageWithLayout } from '../_app';
 
-const DisputeDetails: React.FC = () => {
-  // ... existing code ...
-
+const DisputeDetails: NextPageWithLayout = () => {
   return (
     <div>
-      {/* ... existing dispute details ... */}
-      
-      {/* Add chat component */}
-      {dispute && session?.user && (
-        <DisputeChat
-          dispute={dispute}
-          currentUser={session.user}
-        />
-      )}
-      
-      {/* ... rest of the existing content ... */}
+      <DisputeChat />
     </div>
   );
 };
 
-// ... rest of the existing code ... 
+export const getServerSideProps: GetServerSideProps = async ({ locale }) => {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale ?? 'en', ['common'])),
+    },
+  };
+};
+
+DisputeDetails.getLayout = function getLayout(page: ReactElement) {
+  return <DashboardLayout>{page}</DashboardLayout>;
+};
+
+export default DisputeDetails; 

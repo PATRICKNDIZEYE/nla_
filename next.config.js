@@ -32,6 +32,9 @@ const nextConfig = {
       },
     ];
   },
+
+  // Add transpilePackages configuration for antd
+  transpilePackages: ['antd', '@ant-design/icons', '@ant-design/cssinjs', 'rc-util', 'rc-pagination', 'rc-picker', 'rc-notification', 'rc-tooltip'],
 };
 
 module.exports = nextConfig;

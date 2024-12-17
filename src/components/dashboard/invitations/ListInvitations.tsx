@@ -15,7 +15,8 @@ import {
   Tooltip,
   Badge,
   Row,
-  Col
+  Col,
+  message
 } from "antd";
 import { UploadOutlined, UserAddOutlined, FileTextOutlined, MessageOutlined } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
@@ -60,6 +61,7 @@ const ListInvitations = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [documentLoading, setDocumentLoading] = useState(false);
   const [letterLoading, setLetterLoading] = useState(false);
+  const [loadingInvitations, setLoadingInvitations] = useState<Record<string, boolean>>({});
 
   const [tableParams, setTableParams] = useState<TableParams>({
     pagination: {
@@ -199,6 +201,19 @@ const ListInvitations = () => {
     // Apply filter to your data here
   };
 
+  const handleCancelInvitation = async (invitationId: string) => {
+    try {
+      setLoadingInvitations(prev => ({ ...prev, [invitationId]: true }));
+      await dispatch(cancelInvitation(invitationId)).unwrap();
+      message.success(t('Invitation cancelled successfully'));
+      fetchData();
+    } catch (error: any) {
+      message.error(error.message || t('Failed to cancel invitation'));
+    } finally {
+      setLoadingInvitations(prev => ({ ...prev, [invitationId]: false }));
+    }
+  };
+
   const columns: ColumnsType<IInvitation> = [
     {
       title: t("Date Time"),
@@ -257,25 +272,55 @@ const ListInvitations = () => {
     },
     {
       title: t("Status"),
-      dataIndex: "status",
-      render: (status: string) => {
-        const statusValue = status || 'pending';
-        const color = statusValue === "pending" ? "gold" 
-                   : statusValue === "accepted" ? "green" 
-                   : "red";
+      dataIndex: "isCanceled",
+      render: (isCanceled: boolean) => {
         return (
-          <Tag color={color}>
-            {t(statusValue.toUpperCase())}
+          <Tag color={isCanceled ? "red" : "gold"}>
+            {t(isCanceled ? "CANCELLED" : "PENDING")}
           </Tag>
         );
       },
       filters: [
-        { text: t("Pending"), value: "pending" },
-        { text: t("Accepted"), value: "accepted" },
-        { text: t("Rejected"), value: "rejected" },
+        { text: t("Pending"), value: false },
+        { text: t("Cancelled"), value: true }
       ],
-      onFilter: (value: string, record) => record.status === value || (!record.status && value === 'pending'),
+      onFilter: (value: boolean, record) => record.isCanceled === value,
       width: 120,
+    },
+    {
+      title: t("Actions"),
+      key: "actions",
+      fixed: 'right',
+      width: 200,
+      render: (_, record) => (
+        <Space size="small" className="whitespace-nowrap">
+          <Button
+            type="link"
+            onClick={() => handleGenerateInvitationLetter(record)}
+            className="p-0"
+          >
+            {t('Generate Letter')}
+          </Button>
+          
+          {record.isCanceled !== true && (
+            <Popconfirm
+              title={t("Are you sure you want to cancel this invitation?")}
+              onConfirm={() => handleCancelInvitation(record._id)}
+              okText={t("Yes")}
+              cancelText={t("No")}
+            >
+              <Button
+                type="link"
+                danger
+                loading={loadingInvitations[record._id]}
+                className="p-0"
+              >
+                {t('Cancel')}
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -289,30 +334,6 @@ const ListInvitations = () => {
         <div className="flex flex-wrap gap-2">
           {shouldShowAdminContent(user) && (
             <>
-              <Tooltip title={t("Cancel Invitation")}>
-                <Popconfirm
-                  title={t("Are you sure you want to cancel this invitation?")}
-                  onConfirm={() => handleCancelInvitation(record.id)}
-                  okText={t("Yes")}
-                  cancelText={t("No")}
-                >
-                  <Button type="link" danger size="small">
-                    {t("Cancel")}
-                  </Button>
-                </Popconfirm>
-              </Tooltip>
-              
-              <Tooltip title={t("Generate Invitation Letter")}>
-                <Button 
-                  type="link" 
-                  icon={<FileTextOutlined />}
-                  size="small"
-                  onClick={() => handleGenerateInvitationLetter(record)}
-                >
-                  {t("Letter")}
-                </Button>
-              </Tooltip>
-
               <Tooltip title={t("Assign Defendant")}>
                 <Button
                   type="link"

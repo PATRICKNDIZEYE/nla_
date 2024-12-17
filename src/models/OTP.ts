@@ -13,14 +13,16 @@ const OTPSchema = new mongoose.Schema<OTPs>({
     required: [true, "Please provide a username for this OTP."],
     maxlength: [60, "Username cannot be more than 60 characters"],
   },
+  email: {
+    type: String,
+    required: false,
+  },
   otp: {
     type: String,
     required: [true, "Please provide an otp for this OTP."],
-    maxlength: [6, "OTP cannot be more than 60 characters"],
+    maxlength: [6, "OTP cannot be more than 6 characters"],
   },
-});
-
-OTPSchema.set("timestamps", true);
+}, { timestamps: true });
 
 export default (mongoose.models.OTP as mongoose.Model<OTPs>) ||
   mongoose.model("OTP", OTPSchema);

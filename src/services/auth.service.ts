@@ -5,7 +5,7 @@ export default class AuthService {
 
   static async sendOTP(user: IUser): Promise<void> {
     const otp = await this.generateOTP();
-    const expiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     // Store OTP in user document
     await User.findByIdAndUpdate(user._id, {
@@ -13,19 +13,17 @@ export default class AuthService {
       'mfa.otpExpiry': expiryTime
     });
 
-    // Send via SMS
-    await SmsService.sendSms(
-      user.phoneNumber,
-      `Your OTP for LDMS login is: ${otp}. Valid for 10 minutes.`
-    );
-
-    // Send via Email
-    if (user.email) {
-      await EmailService.sendEmail(
-        user.email,
-        'LDMS Login OTP',
-        `Your OTP for LDMS login is: ${otp}. Valid for 10 minutes.`
+    // Send via SMS if phone number exists
+    if (user.phoneNumber) {
+      await SmsService.sendSms(
+        user.phoneNumber,
+        `Your OTP for login is: ${otp}. Valid for 5 minutes.`
       );
+    }
+
+    // Send via Email if email exists
+    if (user.email) {
+      await EmailService.sendOTPEmail(user.email, otp);
     }
   }
 

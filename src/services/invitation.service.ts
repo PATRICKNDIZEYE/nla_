@@ -148,46 +148,33 @@ export default class InvitationService {
   }
 
   static async cancelInvitation(invitationId: string) {
-    const invitation = await Invitation.findById(invitationId);
-    if (!invitation) {
-      throw new Error("Invitation is not found");
-    }
-    const dispute = await Dispute.findById(invitation.dispute).populate(
-      "claimant"
-    );
-    invitation.isCanceled = true;
-    await invitation.save();
+    try {
+      const invitation = await Invitation.findById(invitationId);
+      if (!invitation) {
+        throw new Error('Invitation not found');
+      }
 
-    if (invitation.invitees?.includes("witnesses") && dispute) {
-      const inviteesPhoneNumbers = dispute.witnesses?.map(
-        (witness) => witness.phoneNumber
-      );
-      SmsService.sendSmsToAll(
-        inviteesPhoneNumbers,
-        `The invitation of Dispute ID: ${dispute.claimId} at ${invitation.location} has been canceled`
-      );
-    }
+      // Update isCanceled to true
+      invitation.isCanceled = true;
+      const updatedInvitation = await invitation.save();
 
-    if (invitation.invitees?.includes("claimant") && dispute) {
-      SmsService.sendSms(
-        dispute.claimant?.phoneNumber,
-        `The invitation of Dispute ID: ${dispute.claimId} at ${invitation.location} has been canceled`
-      );
-    }
+      // Return the updated invitation with populated fields
+      const populatedInvitation = await Invitation.findById(updatedInvitation._id)
+        .populate({
+          path: 'dispute',
+          populate: [
+            { path: 'claimant', select: 'profile phoneNumber email' },
+            { path: 'defendant', select: 'profile phoneNumber email' }
+          ]
+        })
+        .populate('claimant', 'profile phoneNumber email')
+        .populate('invitedBy', 'profile');
 
-    if (invitation.invitees?.includes("defendant") && dispute) {
-      SmsService.sendSms(
-        dispute.defendant?.phoneNumber,
-        `The invitation of Dispute ID: ${dispute.claimId} at ${invitation.location} has been canceled`
-      );
+      return populatedInvitation;
+    } catch (error) {
+      console.error('Error cancelling invitation:', error);
+      throw error;
     }
-    LogService.create({
-      user: invitation.invitedBy!,
-      action: `Canceled invitation of Dispute ID: ${invitation.dispute} at ${invitation.location}`,
-      targettype: `Invitation`,
-      target: invitation._id,
-    });
-    return invitation;
   }
 
   static async generateLetter(

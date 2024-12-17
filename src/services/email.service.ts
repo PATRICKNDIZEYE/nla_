@@ -52,12 +52,14 @@ export default class EmailService {
     to: string;
     subject: string;
     html: string;
-    attachments?: Array<{
-      filename: string;
-      content?: Buffer;
-      path?: string;
-    }>;
+    attachments?: any[];
   }) {
+    console.log('Email Config:', {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER?.slice(0, 5) + '...',
+    });
+    
     try {
       console.log('EmailService sending email to:', to);
       console.log('Email subject:', subject);
@@ -224,6 +226,44 @@ export default class EmailService {
     } catch (error: any) {
       console.error('Error in notifyAssignedDispute:', error);
       throw new Error(`Failed to send dispute assignment notification: ${error.message}`);
+    }
+  }
+
+  static async sendOTPEmail(to: string, otp: string) {
+    try {
+      console.log('Sending OTP email to:', to);
+
+      const html = this.wrapEmailTemplate(`
+        <div style="text-align: center; padding: 20px;">
+          <h2>Your OTP Code</h2>
+          <p>Please use the following code to verify your account:</p>
+          <div style="
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            margin: 24px 0;
+            padding: 16px;
+            background: #f4f4f4;
+            border-radius: 8px;
+          ">
+            ${otp}
+          </div>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `);
+
+      await this.sendEmail({
+        to,
+        subject: 'Your Verification Code',
+        html,
+      });
+
+      console.log('OTP email sent successfully');
+      return true;
+    } catch (error) {
+      console.error('Error sending OTP email:', error);
+      throw error;
     }
   }
 }

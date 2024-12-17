@@ -14,7 +14,7 @@
     "@aws-sdk/client-s3": "^3.712.0",
     "@aws-sdk/s3-request-presigner": "^3.712.0",
     "@reduxjs/toolkit": "^2.0.0",
-    "antd": "^4.x",
+    "antd": "^5.11.1",
     "antd-img-crop": "^4.18.0",
     "axios": "^1.6.2",
     "bcrypt": "^5.1.1",

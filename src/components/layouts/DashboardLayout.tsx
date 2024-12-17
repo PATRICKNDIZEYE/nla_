@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import { myProfile } from "@/redux/features/user/profile.slice";
 import { useRouter } from "next/router";
+import TourButton from "@/components/common/TourButton";
 
 const Spinner = dynamic(() => import("../partials/Spinner"), {
   ssr: false,
@@ -11,6 +12,7 @@ const Spinner = dynamic(() => import("../partials/Spinner"), {
 const LeftSideNav = dynamic(() => import("../partials/LeftSideNav"), {
   ssr: false,
 });
+
 const Header = dynamic(() => import("../partials/Header"), {
   ssr: false,
 });
@@ -19,18 +21,33 @@ const DashboardLayout = ({ children }: React.PropsWithChildren) => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { loading, error, data } = useAppSelector((state) => state.profile);
+
   useEffect(() => {
     dispatch(myProfile());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dispatch]);
+
+  // Get current page tour ID based on route
+  const getCurrentTourId = () => {
+    const path = router.pathname;
+    if (path.includes('/dispute')) return 'disputes';
+    if (path.includes('/invitations')) return 'invitations';
+    if (path.includes('/appeals')) return 'appeals';
+    if (path.includes('/profile')) return 'profile';
+    return 'dashboard';
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50/95">
       <LeftSideNav />
       <Header />
-      <div className="p-4 xl:ml-80 flex-grow flex flex-col">
+      <div className="p-4 xl:ml-80 flex-grow flex flex-col relative">
         {data._id ? (
-          children
+          <>
+            <div className="absolute top-0 right-0 m-4">
+              <TourButton tourId={getCurrentTourId()} />
+            </div>
+            {children}
+          </>
         ) : loading ? (
           <Spinner />
         ) : (

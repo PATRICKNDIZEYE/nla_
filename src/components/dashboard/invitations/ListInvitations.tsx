@@ -39,6 +39,8 @@ import { getEffectiveRole, shouldShowAdminContent, canAccessContent } from "@/ut
 import dayjs, { Moment } from 'dayjs';
 import { districts } from "@/utils/constants/districts";
 import { formatPhoneNumber } from "@/utils/helpers/formatPhoneNumber";
+import { useInvitationsTourSteps } from '@/components/hooks/useTourSteps';
+import TourButton from '@/components/common/TourButton';
 
 const { Search } = Input;
 const { RangePicker } = DatePicker;
@@ -68,6 +70,18 @@ const ListInvitations = () => {
       current: 1,
       pageSize: 10,
     },
+  });
+
+  // Refs for tour targets
+  const generateLetterRef = React.useRef(null);
+  const cancelButtonRef = React.useRef(null);
+  const shareDocsRef = React.useRef(null);
+
+  // Initialize tour steps
+  useInvitationsTourSteps({
+    generateRef: generateLetterRef,
+    cancelRef: cancelButtonRef,
+    shareRef: shareDocsRef
   });
 
   const handleTableChange = (
@@ -298,6 +312,7 @@ const ListInvitations = () => {
             type="link"
             onClick={() => handleGenerateInvitationLetter(record)}
             className="p-0"
+            ref={generateLetterRef}
           >
             {t('Generate Letter')}
           </Button>
@@ -314,6 +329,7 @@ const ListInvitations = () => {
                 danger
                 loading={loadingInvitations[record._id]}
                 className="p-0"
+                ref={cancelButtonRef}
               >
                 {t('Cancel')}
               </Button>
@@ -351,6 +367,7 @@ const ListInvitations = () => {
                   icon={<UploadOutlined />}
                   size="small"
                   onClick={() => handleShareDocuments(record)}
+                  ref={shareDocsRef}
                 >
                   {t("Share")}
                 </Button>
@@ -406,6 +423,7 @@ const ListInvitations = () => {
             ))}
           </Select>
         )}
+        <TourButton tourId="invitations" className="ml-auto" />
       </div>
 
       <ConfigProvider

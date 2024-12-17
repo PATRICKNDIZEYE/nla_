@@ -9,12 +9,16 @@ import { languages } from "@/utils/constants/languages";
 import { useTranslation } from "react-i18next";
 import Secure from "@/utils/helpers/secureLS";
 import { formatPhoneNumber } from "@/utils/helpers/function";
-import { useAppSelector } from "@/redux/store";
+import { useAppSelector, useAppDispatch } from "@/redux/store";
 import Keys from "@/utils/constants/keys";
 import { HiMenu } from "react-icons/hi";
 import LeftSideNavPopup from "./LeftSideNavPopup";
 import axios from "axios";
 import { FaRegArrowAltCircleUp } from "react-icons/fa";
+import { ExclamationCircleFilled } from "@ant-design/icons";
+import TourButton from "@/components/common/TourButton";
+
+const { confirm } = Modal;
 
 const Header = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,6 +50,7 @@ const Header = () => {
   const { data: user } = useAppSelector((state) => state.profile);
    const isAdmin=["admin","manager"].includes(user?.level?.accountRole!)
   const profile = user?.profile;
+  const dispatch = useAppDispatch();
 
   // Get Anew Acess token for another account
   const switchAccount = async () => {
@@ -69,6 +74,17 @@ const Header = () => {
       console.error("Error switching account:", error);
     }
   }
+
+  // Get current page tour ID based on route
+  const getCurrentTourId = () => {
+    const path = router.pathname;
+    if (path.includes('/dispute')) return 'disputes';
+    if (path.includes('/invitations')) return 'invitations';
+    if (path.includes('/appeals')) return 'appeals';
+    if (path.includes('/profile')) return 'profile';
+    return 'dashboard';
+  };
+
   return (
     <>
       <nav className=" bg-white w-full border border-gray flex relative justify-between items-center mx-auto px-4 h-[50px]">

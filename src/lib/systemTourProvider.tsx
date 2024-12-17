@@ -1,6 +1,7 @@
 import { SystemTourContext, tours } from "@/components/hooks/tour";
-import React from "react";
-import ClientTour from "./ClientTour";
+import React, { useEffect } from "react";
+import { initializeTours } from "@/utils/constants/tours";
+import { useTranslation } from "next-i18next";
 
 type SystemTourContextProviderProps = {
   children: React.ReactNode;
@@ -9,12 +10,15 @@ type SystemTourContextProviderProps = {
 export const SystemTourProvider = ({
   children,
 }: SystemTourContextProviderProps) => {
+  const { t } = useTranslation('common');
+
+  useEffect(() => {
+    initializeTours(t);
+  }, [t]);
+
   return (
-    <>
-      <SystemTourContext.Provider value={tours}>
-        {children}
-        {/* <ClientTour /> */}
-      </SystemTourContext.Provider>
-    </>
+    <SystemTourContext.Provider value={tours}>
+      {children}
+    </SystemTourContext.Provider>
   );
 };

@@ -1,14 +1,13 @@
-import React from "react";
-import { Flex, Spin } from "antd";
+import React from 'react';
+import { Spin } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 
-const Spinner: React.FC = () => (
-  <Flex
-    align="center"
-    gap="middle"
-    className="min-h-screen flex-col items-center justify-center"
-  >
-    <Spin size="large" />
-  </Flex>
-);
+const Spinner = () => {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+    </div>
+  );
+};
 
 export default Spinner;

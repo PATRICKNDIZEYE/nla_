@@ -1,20 +1,30 @@
-import React from 'react';
-import { NextPage } from 'next';
-import { useTranslation } from 'react-i18next';
-import UPISearch from '@/components/dashboard/dispute/UPISearch';
-import DashboardLayout from '@/templates/layouts/DashboardLayout';
+import { ReactElement } from "react";
+import { GetStaticProps } from "next";
+import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import type { NextPageWithLayout } from "./_app";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
+import dynamic from "next/dynamic";
 
-const UPISearchPage: NextPage = () => {
-  const { t } = useTranslation('common');
+const UPISearch = dynamic(() => import("@/components/dashboard/upi/UPISearch"), {
+  ssr: false,
+});
 
-  return (
-    <DashboardLayout>
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">{t('UPI Case Search')}</h1>
-        <UPISearch />
-      </div>
-    </DashboardLayout>
-  );
+type Props = {
+  // Add custom props here
+};
+
+const UPISearchPage: NextPageWithLayout = () => {
+  return <UPISearch />;
+};
+
+export const getStaticProps: GetStaticProps<Props> = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale ?? "en", ["common"])),
+  },
+});
+
+UPISearchPage.getLayout = function getLayout(page: ReactElement) {
+  return <DashboardLayout>{page}</DashboardLayout>;
 };
 
 export default UPISearchPage; 

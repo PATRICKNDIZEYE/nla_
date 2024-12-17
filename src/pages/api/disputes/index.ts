@@ -83,52 +83,34 @@ export default async function handler(
 
     case "GET":
       try {
-        const { userId, district, status, isSwitch, role, targetUserId, ...restQuery } = req.query;
-        console.log('API Request Query:', req.query);
+        const { userId, role, ...restQuery } = req.query;
+        console.log('API Request Query:', { userId, role, ...restQuery });
         
         const filter: any = {};
         
-        // Use role from query params (session) instead of querying database
-        console.log('User role from session:', role);
-        
-        // If targetUserId is provided, it takes precedence over other user filters
-        if (targetUserId) {
-          console.log('Using target user filter:', targetUserId);
-          filter.claimant = targetUserId;
-        } else if (userId && !isSwitch && role !== 'admin') {
-          console.log('Adding user filter:', userId);
+        // Use role-based filtering consistently
+        if (role === 'user') {
           filter.claimant = userId;
+        } else if (role === 'manager') {
+          // Manager can see district cases
+          const user = await User.findById(userId);
+          if (user?.level?.district) {
+            filter.district = user.level.district.toLowerCase();
+          }
         }
+        // Admin can see all cases (no filter)
         
-        if (district) {
-          console.log('Adding district filter:', district);
-          filter.district = district.toString().toLowerCase();
-        }
-
-        if (status) {
-          console.log('Adding status filter:', status);
-          filter.status = status;
-        }
-
         console.log('Final filter:', filter);
-        console.log('Rest query params:', restQuery);
 
         const disputes = await DisputeService.getAllClaims({ 
           ...restQuery,
           userId: userId?.toString(),
           role: role?.toString(),
-          targetUserId: targetUserId?.toString(),
           filter 
         });
         
-        console.log('Disputes found:', {
-          count: disputes.data.length,
-          totalItems: disputes.pagination.totalItems,
-          userRole: role
-        });
-
         return res.status(200).json(disputes);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error in GET /disputes:', error);
         return res.status(500).json({ message: error.message });
       }

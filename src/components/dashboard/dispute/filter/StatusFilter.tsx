@@ -20,6 +20,18 @@ const defaultOptions = [
     label: "Resolved",
   },
   {
+    value: "rejected",
+    label: "Rejected",
+  },
+  {
+    value: "appealed",
+    label: "Appealed",
+  },
+  {
+    value: "withdrawn",
+    label: "Withdrawn",
+  },
+  {
     value: "closed",
     label: "Closed",
   },
@@ -30,27 +42,40 @@ interface Props {
   title?: string;
   defaultValue?: string;
   options?: { value: string; label: string }[];
+  className?: string;
 }
+
 const StatusFilter = ({
   onChange = () => {},
   title = "Dispute Status",
-  defaultValue,
+  defaultValue = "",
   options = defaultOptions,
+  className = "",
 }: Props) => {
   const { t } = useTranslation("common");
+
+  const handleChange = (value: string) => {
+    console.log('Status filter changed to:', value);
+    onChange(value);
+  };
+
   return (
     <Select
       title={title}
       showSearch
-      style={{ width: 200 }}
+      className={`min-w-[200px] ${className}`}
       placeholder={t("All Statuses")}
       optionFilterProp="children"
       filterOption={(input, option) =>
         (option?.label?.toLowerCase() ?? "").includes(input.toLowerCase())
       }
-      onChange={onChange}
-      options={options}
+      onChange={handleChange}
+      options={options.map(opt => ({
+        ...opt,
+        label: t(opt.label)
+      }))}
       defaultValue={defaultValue}
+      allowClear
     />
   );
 };

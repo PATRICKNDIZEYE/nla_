@@ -10,36 +10,20 @@ import axiosInstance from "@/utils/config/axios.config";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 export const getAllInvitations = createAsyncThunk(
-  "invitation/getAllInvitations",
-  async (params: TableParams & { dateFrom?: string; dateTo?: string; district?: string }) => {
+  "invitation/getAll",
+  async (params: QueryParams) => {
     try {
-      let query = "/invitations";
-      if (params) {
-        query += `?page=${params.pagination?.current}&limit=${params.pagination?.pageSize}`;
-        if (params.search) {
-          query += `&search=${params.search}`;
+      console.log('getAllInvitations params:', params); // Debug log
+      const { data } = await axiosInstance.get("/invitations", {
+        params: {
+          ...params,
+          role: params.role // Ensure role is included
         }
-        if (params.userId) {
-          query += `&userId=${params.userId}`;
-        }
-        if (params.dateFrom) {
-          query += `&dateFrom=${params.dateFrom}`;
-        }
-        if (params.dateTo) {
-          query += `&dateTo=${params.dateTo}`;
-        }
-        if (params.district) {
-          query += `&district=${params.district}`;
-        }
-      }
-      const { data } = await axiosInstance.get<IPaginatedData<IInvitation>>(
-        query
-      );
+      });
       return data;
     } catch (error) {
       const err = error as ResponseError;
-      const message = err.response?.data.message || err.message;
-      throw new Error(message);
+      throw new Error(err.response?.data.message || err.message);
     }
   }
 );

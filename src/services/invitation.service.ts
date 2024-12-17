@@ -58,77 +58,93 @@ export default class InvitationService {
     return result;
   }
 
-  static async getAll(params?: QueryParams) {
-    const user = await User.findById(params?.userId);
-    const page = Number(params?.page || 1);
-    const limit = Number(params?.limit || 10);
+  static async getAll(params: QueryParams) {
+    try {
+      const { page = 1, limit = 10, search, filter = {}, sort = {} } = params;
+      
+      console.log('Service getAll params:', {
+        page,
+        limit,
+        search,
+        filter,
+        hasFilter: Object.keys(filter).length > 0
+      });
 
-    const search = params?.search;
-    let $or: any[] = [{}];
+      // First get the disputes where user is involved
+      let userDisputes = [];
+      if (filter.$or) {
+        userDisputes = await Dispute.find({
+          $or: [
+            { claimant: params.userId },
+            { defendant: params.userId }
+          ]
+        }).select('_id');
+      }
 
-    if (search) {
-      $or = [
-        { "dispute.claimId": { $regex: search, $options: "i" } },
-        { location: { $regex: search, $options: "i" } },
-      ];
-    }
+      // Modify the filter to work with populated fields
+      let finalFilter: any = {};
+      if (filter.$or) {
+        finalFilter = {
+          $or: [
+            { claimant: params.userId },
+            { invitedBy: params.userId },
+            { dispute: { $in: userDisputes.map(d => d._id) } }
+          ]
+        };
+      } else {
+        finalFilter = filter; // For admin/manager filters
+      }
 
-    // Base filter
-    const filter: Record<string, any> = {
-      isCanceled: { $ne: true }  // Don't show canceled invitations by default
-    };
+      console.log('Final MongoDB filter:', finalFilter);
 
-    // Apply date filters if provided
-    if (params?.dateFrom) {
-      filter.createdAt = { $gte: new Date(params.dateFrom) };
-    }
-    if (params?.dateTo) {
-      filter.createdAt = { ...filter.createdAt, $lte: new Date(params.dateTo) };
-    }
+      const query = Invitation.find(finalFilter)
+        .populate({
+          path: 'dispute',
+          populate: [
+            { path: 'claimant', select: 'profile phoneNumber email' },
+            { path: 'defendant', select: 'profile phoneNumber email' }
+          ]
+        })
+        .populate('claimant', 'profile phoneNumber email')
+        .populate('invitedBy', 'profile')
+        .sort({ createdAt: -1 });
 
-    // Role-based filtering
-    if (user?.level?.role === "user") {
-      filter.claimant = new mongoose.Types.ObjectId(user._id);
-    } else if (user?.level?.district && user?.level?.role === "manager") {
-      filter.district = user.level.district.toLowerCase();
-    }
-    // For admin users, no additional filters needed - they can see all invitations
+      if (search) {
+        query.or([
+          { location: { $regex: search, $options: 'i' } },
+          { 'dispute.claimId': { $regex: search, $options: 'i' } }
+        ]);
+      }
 
-    const invitations = await Invitation.find({
-      ...filter,
-      $or,
-    })
-      .populate([
-        {
-          path: "dispute",
-          populate: {
-            path: "claimant",
-            model: "User",
-            select: "profile phoneNumber email level"
-          },
-        },
-        {
-          path: "invitedBy",
-          model: "User",
-          select: "profile level"
-        },
-        {
-          path: "claimant",
-          model: "User",
-          select: "profile phoneNumber email level"
+      // Add date range filtering if provided
+      if (params.dateFrom) {
+        query.where('dateTime').gte(new Date(params.dateFrom));
+      }
+      if (params.dateTo) {
+        query.where('dateTime').lte(new Date(params.dateTo));
+      }
+
+      const skip = (page - 1) * limit;
+      const [data, total] = await Promise.all([
+        query.skip(skip).limit(limit),
+        Invitation.countDocuments(finalFilter)
+      ]);
+
+      console.log(`Found ${total} total invitations, returning ${data.length} results`);
+
+      return {
+        data,
+        pagination: {
+          totalItems: total,
+          totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          itemsPerPage: limit
         }
-      ])
-      .sort({ createdAt: -1 })
-      .skip(Math.abs(limit * (page - 1)))
-      .limit(limit);
-
-    const count = await Invitation.countDocuments({
-      ...filter,
-      $or,
-    });
-    const pagination = paginate(count, limit, page);
-
-    return { data: invitations, pagination };
+      };
+    } catch (error) {
+      console.error('Error in invitation service getAll:', error);
+      throw error;
+    }
   }
 
   static async cancelInvitation(invitationId: string) {

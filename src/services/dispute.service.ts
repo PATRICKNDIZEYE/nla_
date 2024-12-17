@@ -88,70 +88,77 @@ export default class DisputeService {
       console.log('Fetching disputes with params:', params);
       
       const user = await User.findById(params?.userId);
-      const role = user?.level?.role;
-      const targetUserId = params?.targetUserId;
-      console.log('User found:', user?._id, 'Role:', role, 'Target User:', targetUserId);
-      
+      if (!user) {
+        throw new Error("User not found");
+      }
+
       const page = Number(params?.page || 1);
       const limit = Number(params?.limit || 10);
       const search = params?.search;
-      const level = params?.level || params?.filter?.level; // Handle both direct level param and filter.level
+      const level = params?.level || params?.filter?.level;
+      const status = params?.status || params?.filter?.status;
 
-      // Base query object
-      const query: Record<string, any> = {
+      // Base query object - exactly like statistics
+      const $match: Record<string, any> = {
         datetimedeleted: { $exists: false }
       };
 
-      // If targetUserId is provided, show cases for that user regardless of role
-      if (targetUserId) {
-        query.claimant = new mongoose.Types.ObjectId(targetUserId);
-      } else {
-        // Regular role-based filtering
-        if (role === "user") {
-          query.claimant = new mongoose.Types.ObjectId(params?.userId || '');
-        } else if (role === "admin" || role === "manager") {
-          // Admin and manager can see all cases - no additional filters needed
-          console.log('Admin/Manager role - showing all cases');
-        } else if (user?.level?.district) {
-          // District user filtering
-          query.district = user.level.district.toLowerCase();
-          query.level = { $ne: "nla" }; // Exclude NLA cases for district users
+      // Handle role-based filtering - EXACTLY like statistics
+      if (params?.role === "user" || user?.level?.isSwitch) {
+        // When in user view or switched to user account, only show own disputes
+        $match.claimant = new mongoose.Types.ObjectId(params?.userId);
+        console.log('Filtering for user disputes:', params?.userId);
+      } else if (params?.role === "admin" || params?.role === "manager") {
+        // Admin and manager can see all cases in their scope
+        if (user?.level?.district) {
+          // If admin/manager has district, only show their district cases
+          $match.district = user.level.district.toLowerCase();
+          console.log('Filtering by district:', user.level.district);
         }
+      } else if (user?.level?.district) {
+        // District user can only see cases in their district
+        $match.district = user.level.district.toLowerCase();
+        $match.level = { $ne: "nla" }; // Exclude NLA cases for district users
+        console.log('Filtering for district user:', user.level.district);
       }
 
-      // Handle level filter
+      // Add search conditions if provided
+      if (search) {
+        $match.$or = [
+          { claimId: { $regex: search, $options: 'i' } },
+          { upiNumber: { $regex: search, $options: 'i' } },
+          { 'land.districtName': { $regex: search, $options: 'i' } },
+          { 'land.sectorName': { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      // Add status filter if provided
+      if (status) {
+        $match.status = status.toLowerCase();
+      }
+
+      // Add level filter if provided
       if (level) {
-        console.log('Applying level filter:', level);
-        
-        // Remove any existing level filters
-        delete query.level;
-        delete query.$or;
-        
         if (level === "nla") {
-          // For NLA level, match exactly "nla" (case insensitive)
-          query.level = "nla";
-          console.log('Filtering for NLA cases only');
+          $match.level = "nla";
         } else if (level === "district") {
-          // For district level, include district and unset levels
-          query.$or = [
+          $match.$or = [
             { level: "district" },
             { level: { $exists: false } },
             { level: "" },
             { level: null }
           ];
-          console.log('Filtering for district cases');
         }
       }
 
-      // Log the query before execution
-      console.log('Final query:', JSON.stringify(query, null, 2));
+      console.log('Final query:', JSON.stringify($match, null, 2));
 
-      // Get total counts
-      const totalCount = await Dispute.countDocuments(query);
+      // Get total count
+      const totalCount = await Dispute.countDocuments($match);
       console.log('Total matching disputes:', totalCount);
 
       // Execute query with pagination
-      const disputes = await Dispute.find(query)
+      const disputes = await Dispute.find($match)
         .populate({
           path: 'claimant',
           select: 'profile phoneNumber nationalId email level'
@@ -171,15 +178,13 @@ export default class DisputeService {
         .lean();
 
       console.log('Disputes found:', disputes.length);
-      
-      // Log sample disputes for verification
       if (disputes.length > 0) {
-        console.log('Sample disputes:', disputes.slice(0, 2).map(d => ({
-          id: d._id,
-          level: d.level,
-          claimId: d.claimId,
-          status: d.status
-        })));
+        console.log('Sample dispute:', {
+          id: disputes[0]._id,
+          claimant: disputes[0].claimant?._id,
+          level: disputes[0].level,
+          district: disputes[0].district
+        });
       }
 
       // Process disputes
@@ -187,7 +192,7 @@ export default class DisputeService {
         ...dispute,
         _id: dispute._id.toString(),
         status: dispute.status?.toLowerCase(),
-        level: dispute.level,  // Keep original level value
+        level: dispute.level,
         claimant: dispute.claimant ? {
           ...dispute.claimant,
           _id: dispute.claimant._id.toString()
@@ -202,8 +207,8 @@ export default class DisputeService {
         } : undefined
       }));
 
-      return { 
-        data: processedDisputes, 
+      return {
+        data: processedDisputes,
         pagination: {
           totalPages: Math.ceil(totalCount / limit),
           currentPage: page,
@@ -212,12 +217,7 @@ export default class DisputeService {
           hasPrevPage: page > 1
         },
         totalItems: totalCount,
-        count: processedDisputes.length,
-        levelCounts: {
-          nla: disputes.filter(d => d.level === "nla").length,
-          district: disputes.filter(d => d.level !== "nla").length,
-          total: totalCount
-        }
+        count: processedDisputes.length
       };
     } catch (error) {
       console.error('Error in getAllClaims:', error);
@@ -464,18 +464,22 @@ export default class DisputeService {
       $match.status = { $exists: true };
 
       // Handle role-based filtering
-      if (role === "user") {
+      if (role === "user" || user?.level?.isSwitch) {
+        // When in user view or switched to user account, only show own disputes
         $match.claimant = new mongoose.Types.ObjectId(userId);
+        console.log('Filtering stats for user disputes:', userId);
       } else if (role === "admin" || role === "manager") {
-        // Admin and manager can see all cases
+        // Admin and manager can see all cases in their scope
         if (user?.level?.district) {
           // If admin/manager has district, only show their district cases
           $match.district = user.level.district.toLowerCase();
+          console.log('Filtering stats by district:', user.level.district);
         }
       } else if (user?.level?.district) {
         // District user can only see cases in their district
         $match.district = user.level.district.toLowerCase();
         $match.level = { $ne: "nla" }; // Exclude NLA cases for district users
+        console.log('Filtering stats for district user:', user.level.district);
       }
 
       // Add date range filter if provided
@@ -484,6 +488,7 @@ export default class DisputeService {
           $gte: new Date(startDate),
           $lte: new Date(endDate)
         };
+        console.log('Date range filter:', { startDate, endDate });
       }
 
       console.log('Status aggregation match:', $match);

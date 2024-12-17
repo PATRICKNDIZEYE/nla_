@@ -46,7 +46,7 @@ const { TextArea } = Input;
 const ListInvitations = () => {
   const { t } = useTranslation("common");
   const { data: user } = useAppSelector((state) => state.profile);
-  const userRole = user?.level?.role ?? "user";
+  const userRole = user?.level?.role;
   const { data, loading: fetchLoading } = useAppSelector((state) => state.invitation);
   const { search, debouncedSearch, setSearch } = useSearch();
   const dispatch = useAppDispatch();
@@ -173,22 +173,26 @@ const ListInvitations = () => {
   };
 
   const fetchData = () => {
-    dispatch(
-      getAllInvitations({
-        ...tableParams,
-        search: debouncedSearch,
-        userId: user?.level?.isSwitch ? user._id : undefined,
-        district: selectedDistrict || (getEffectiveRole(user) === "manager" ? user?.level?.district : undefined),
-        dateFrom: dateRange?.[0]?.toISOString(),
-        dateTo: dateRange?.[1]?.toISOString(),
-      })
-    );
+    console.log('Current user role:', userRole);
+
+    const queryParams = {
+      ...tableParams,
+      search: debouncedSearch,
+      dateFrom: dateRange?.[0]?.toISOString(),
+      dateTo: dateRange?.[1]?.toISOString(),
+      userId: user?._id,
+      role: userRole
+    };
+
+    console.log('Fetching invitations with params:', queryParams);
+    dispatch(getAllInvitations(queryParams));
   };
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(tableParams), debouncedSearch, user, dateRange, selectedDistrict]);
+    if (user?._id && userRole) {
+      fetchData();
+    }
+  }, [JSON.stringify(tableParams), debouncedSearch, user?._id, userRole, dateRange]);
 
   const handleDateRangeChange = (dates: [Moment, Moment]) => {
     setDateRange(dates);
@@ -202,12 +206,15 @@ const ListInvitations = () => {
       key: "dateTime",
       render: (_, record) => new Date(record.dateTime).toLocaleString(),
       sorter: true,
+      width: 180,
+      ellipsis: true,
     },
     {
       title: t("Location"),
       dataIndex: "location",
       key: "location",
       ellipsis: true,
+      width: 150,
       filters: data.data
         .map((item) => item.location)
         .filter((value, index, self) => self.indexOf(value) === index)
@@ -216,39 +223,43 @@ const ListInvitations = () => {
     {
       title: t("Case ID"),
       dataIndex: "claimId",
-      render: (_, record) => `
-        ${
-          Array.isArray(record?.dispute)
-            ? record?.dispute[0].claimId
-            : record.dispute.claimId ?? ""
-        }`,
+      render: (_, record) => `${
+        Array.isArray(record?.dispute)
+          ? record?.dispute[0].claimId
+          : record.dispute.claimId ?? ""
+      }`,
       sorter: true,
+      width: 120,
+      ellipsis: true,
     },
     {
       title: t("Invitees"),
       dataIndex: "invitees",
       key: "invitees",
       render: (_, record) => (
-        <Space>
+        <div className="flex flex-wrap gap-1">
           {record.invitees.map((invitee) => (
-            <Tag key={invitee} className="uppercase">
+            <Tag key={invitee} className="uppercase mb-1">
               {invitee}
             </Tag>
           ))}
-        </Space>
+        </div>
       ),
+      width: 200,
     },
     {
       title: t("Created At"),
       dataIndex: "createdAt",
       render: (date: string) => dayjs(date).format("YYYY-MM-DD HH:mm"),
       sorter: (a, b) => dayjs(a.createdAt).unix() - dayjs(b.createdAt).unix(),
+      width: 150,
+      ellipsis: true,
     },
     {
       title: t("Status"),
       dataIndex: "status",
       render: (status: string) => {
-        const statusValue = status || 'pending';  // Default to pending if status is undefined
+        const statusValue = status || 'pending';
         const color = statusValue === "pending" ? "gold" 
                    : statusValue === "accepted" ? "green" 
                    : "red";
@@ -264,6 +275,7 @@ const ListInvitations = () => {
         { text: t("Rejected"), value: "rejected" },
       ],
       onFilter: (value: string, record) => record.status === value || (!record.status && value === 'pending'),
+      width: 120,
     },
   ];
 
@@ -271,8 +283,10 @@ const ListInvitations = () => {
     columns.push({
       title: t("Action"),
       key: "action",
+      fixed: 'right',
+      width: 200,
       render: (_, record) => (
-        <Space size="middle">
+        <div className="flex flex-wrap gap-2">
           {shouldShowAdminContent(user) && (
             <>
               <Tooltip title={t("Cancel Invitation")}>
@@ -282,7 +296,7 @@ const ListInvitations = () => {
                   okText={t("Yes")}
                   cancelText={t("No")}
                 >
-                  <Button type="link" danger>
+                  <Button type="link" danger size="small">
                     {t("Cancel")}
                   </Button>
                 </Popconfirm>
@@ -292,6 +306,7 @@ const ListInvitations = () => {
                 <Button 
                   type="link" 
                   icon={<FileTextOutlined />}
+                  size="small"
                   onClick={() => handleGenerateInvitationLetter(record)}
                 >
                   {t("Letter")}
@@ -302,6 +317,7 @@ const ListInvitations = () => {
                 <Button
                   type="link"
                   icon={<UserAddOutlined />}
+                  size="small"
                   onClick={() => handleAssignDefendant(record)}
                 >
                   {t("Assign")}
@@ -312,6 +328,7 @@ const ListInvitations = () => {
                 <Button
                   type="link"
                   icon={<UploadOutlined />}
+                  size="small"
                   onClick={() => handleShareDocuments(record)}
                 >
                   {t("Share")}
@@ -319,18 +336,20 @@ const ListInvitations = () => {
               </Tooltip>
             </>
           )}
-        </Space>
+        </div>
       ),
     });
   }
 
+  const showDistrictSelect = (user?.level?.role === "admin" || user?.level?.role === "manager") && 
+                           !user?.level?.isSwitch;
+
   return (
     <>
-      <div className="flex flex-wrap items-center gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         <Search
           placeholder={t("Search invitation...")}
           loading={fetchLoading}
-          className="flex-grow mr-4"
           allowClear
           onSearch={setSearch}
           value={search}
@@ -347,18 +366,23 @@ const ListInvitations = () => {
         />
         <RangePicker
           onChange={handleDateRangeChange}
-          className="min-w-[250px]"
           format="YYYY-MM-DD"
+          className="w-full"
         />
-        {(userRole === "admin" || userRole === "superadmin") && (
+        {showDistrictSelect && (
           <Select
             placeholder={t("Select District")}
             allowClear
-            className="min-w-[200px]"
+            className="w-full"
             onChange={setSelectedDistrict}
             value={selectedDistrict}
+            disabled={user?.level?.role === "manager" && !selectedDistrict}
           >
-            {/* District options would be populated from your districts data */}
+            {districts.map((district) => (
+              <Select.Option key={district.name} value={district.name.toLowerCase()}>
+                {district.name}
+              </Select.Option>
+            ))}
           </Select>
         )}
       </div>
@@ -378,7 +402,7 @@ const ListInvitations = () => {
           rowKey={(record) => `${record._id}`}
           loading={fetchLoading}
           pagination={{
-            position: ["none", "bottomRight"],
+            position: ["bottomRight"],
             pageSize: tableParams.pagination?.pageSize,
             current: tableParams.pagination?.current,
             total: data.pagination.totalItems,
@@ -393,9 +417,10 @@ const ListInvitations = () => {
             },
           }}
           dataSource={data.data}
-          scroll={{ x: 1500 }}
-          className="whitespace-nowrap"
+          scroll={{ x: 1200 }}
+          className="overflow-x-auto"
           onChange={handleTableChange}
+          sticky
         />
       </ConfigProvider>
 

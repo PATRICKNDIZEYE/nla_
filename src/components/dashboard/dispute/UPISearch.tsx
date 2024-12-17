@@ -83,12 +83,14 @@ const UPISearch: React.FC = () => {
       title: t('Case ID'),
       dataIndex: 'claimId',
       key: 'claimId',
+      width: 120,
       render: (claimId: string) => claimId || t('N/A'),
     },
     {
       title: t('Status'),
       dataIndex: 'status',
       key: 'status',
+      width: 120,
       render: (status: string, record) => (
         <Tag color={record.isAppealed ? 'blue' : 'green'}>
           {status || t('Unknown')}
@@ -99,30 +101,44 @@ const UPISearch: React.FC = () => {
       title: t('Claimant'),
       dataIndex: ['claimant', 'fullName'],
       key: 'claimant',
+      width: 200,
+      ellipsis: true,
       render: (_, record) => record.claimant?.fullName || t('N/A'),
     },
     {
       title: t('Date Filed'),
       dataIndex: 'createdAt',
       key: 'createdAt',
+      width: 120,
       render: (date: string | null) => date ? new Date(date).toLocaleDateString() : t('N/A'),
     },
     {
       title: t('Appeal Status'),
       key: 'appealStatus',
+      width: 200,
       render: (_, record) => (
-        <div>
+        <div className="flex flex-col gap-1">
           {record.isAppealed ? (
             <Tag color="blue">{t('Appealed')}</Tag>
           ) : (
             <Tag color="default">{t('Not Appealed')}</Tag>
           )}
           {record.appealHistory && record.appealHistory.length > 0 && (
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-gray-500">
               {t('Last appeal')}: {new Date(record.appealHistory[0].appealedAt).toLocaleDateString()}
             </div>
           )}
         </div>
+      ),
+    },
+    {
+      title: t('Days Since Update'),
+      key: 'daysSinceUpdate',
+      width: 150,
+      render: (_, record) => (
+        <Tag color={record.daysSinceLastUpdate > 2 ? 'orange' : 'green'}>
+          {record.daysSinceLastUpdate} {t('days')}
+        </Tag>
       ),
     },
   ];
@@ -136,6 +152,7 @@ const UPISearch: React.FC = () => {
           size="large"
           onSearch={handleSearch}
           loading={loading}
+          className="max-w-xl"
         />
         
         {error && (
@@ -151,32 +168,39 @@ const UPISearch: React.FC = () => {
       <Drawer
         title={t('UPI Search Results')}
         placement="right"
-        width={720}
+        width={window.innerWidth > 1200 ? 1000 : window.innerWidth > 768 ? 720 : '100%'}
         onClose={() => setDrawerVisible(false)}
         open={drawerVisible}
+        className="upi-search-drawer"
       >
         {searchResults && (
           <>
-            <Row gutter={16} className="mb-4">
-              <Col span={8}>
-                <Statistic
-                  title={t('Total Cases')}
-                  value={searchResults.summary.total}
-                />
+            <Row gutter={[16, 16]} className="mb-4">
+              <Col xs={24} sm={8}>
+                <Card>
+                  <Statistic
+                    title={t('Total Cases')}
+                    value={searchResults.summary.total}
+                  />
+                </Card>
               </Col>
-              <Col span={8}>
-                <Statistic
-                  title={t('Appealed Cases')}
-                  value={searchResults.summary.appealed}
-                  valueStyle={{ color: '#1890ff' }}
-                />
+              <Col xs={24} sm={8}>
+                <Card>
+                  <Statistic
+                    title={t('Appealed Cases')}
+                    value={searchResults.summary.appealed}
+                    valueStyle={{ color: '#1890ff' }}
+                  />
+                </Card>
               </Col>
-              <Col span={8}>
-                <Statistic
-                  title={t('Non-Appealed Cases')}
-                  value={searchResults.summary.nonAppealed}
-                  valueStyle={{ color: '#52c41a' }}
-                />
+              <Col xs={24} sm={8}>
+                <Card>
+                  <Statistic
+                    title={t('Non-Appealed Cases')}
+                    value={searchResults.summary.nonAppealed}
+                    valueStyle={{ color: '#52c41a' }}
+                  />
+                </Card>
               </Col>
             </Row>
 
@@ -186,7 +210,9 @@ const UPISearch: React.FC = () => {
               rowKey="_id"
               loading={loading}
               pagination={false}
-              scroll={{ x: 800, y: 400 }}
+              scroll={{ x: 800, y: 'calc(100vh - 400px)' }}
+              className="border rounded-lg"
+              size="middle"
             />
           </>
         )}

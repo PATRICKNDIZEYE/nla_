@@ -11,12 +11,23 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 export const getAllStats = createAsyncThunk(
   "stat/getAllStats",
-  async () => {
+  async ({ userId, role, startDate, endDate }: { 
+    userId: string;
+    role?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
     try {
-      let query = "/claims/analytics";
-      const { data } = await axiosInstance.get<IAnalytics>(
-        query
-      );
+      let query = `/claims/analytics?userId=${userId}`;
+      if (role) {
+        query += `&role=${role}`;
+      }
+      if (startDate && endDate) {
+        query += `&startDate=${startDate}&endDate=${endDate}`;
+      }
+      
+      console.log('Fetching stats with query:', query);
+      const { data } = await axiosInstance.get<IAnalytics>(query);
       return data;
     } catch (error) {
       const err = error as ResponseError;

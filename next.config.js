@@ -48,8 +48,7 @@ const nextConfig = {
 
   // Handle ESM modules
   experimental: {
-    esmExternals: 'loose',
-    serverComponents: false
+    esmExternals: false,
   },
 
   webpack: (config, { isServer }) => {
@@ -68,6 +67,24 @@ const nextConfig = {
       resolve: {
         fullySpecified: false,
       },
+    });
+
+    // Add resolve.extensions configuration
+    config.resolve.extensions = ['.js', '.jsx', '.ts', '.tsx', '.json'];
+
+    // Force antd icons to use CommonJS
+    config.module.rules.push({
+      test: /\.js$/,
+      include: [/@ant-design\/icons-svg/],
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['@babel/preset-env'],
+          plugins: [
+            '@babel/plugin-transform-modules-commonjs'
+          ]
+        }
+      }
     });
 
     return config;

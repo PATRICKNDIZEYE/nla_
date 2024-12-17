@@ -33,8 +33,45 @@ const nextConfig = {
     ];
   },
 
-  // Add transpilePackages configuration for antd
-  transpilePackages: ['antd', '@ant-design/icons', '@ant-design/cssinjs', 'rc-util', 'rc-pagination', 'rc-picker', 'rc-notification', 'rc-tooltip'],
+  // Add transpilePackages configuration for antd and handle ESM modules
+  transpilePackages: [
+    'antd', 
+    '@ant-design/icons',
+    '@ant-design/icons-svg',
+    '@ant-design/cssinjs',
+    'rc-util',
+    'rc-pagination',
+    'rc-picker',
+    'rc-notification',
+    'rc-tooltip'
+  ],
+
+  // Handle ESM modules
+  experimental: {
+    esmExternals: 'loose',
+    serverComponents: false
+  },
+
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        module: false,
+      };
+    }
+
+    // Handle ESM modules
+    config.module.rules.push({
+      test: /\.m?js$/,
+      type: 'javascript/auto',
+      resolve: {
+        fullySpecified: false,
+      },
+    });
+
+    return config;
+  },
 };
 
 module.exports = nextConfig;

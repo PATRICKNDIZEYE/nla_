@@ -5,7 +5,7 @@ import type { NextPageWithLayout } from "./_app";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import dynamic from "next/dynamic";
 
-const UPISearch = dynamic(() => import("@/components/dashboard/upi/UPISearch"), {
+const UPISearch = dynamic(() => import("@/components/dashboard/dispute/UPISearch"), {
   ssr: false,
 });
 

@@ -14,6 +14,8 @@ import {
 } from "@/redux/features/statistics.slice";
 import { DatePicker } from "antd";
 import ExportLink from "@/components/partials/ExportLink";
+import UPISearch from '../dispute/UPISearch';
+import { Card } from "antd";
 
 const { RangePicker } = DatePicker;
 
@@ -105,6 +107,16 @@ const Statistics = () => {
           )}
         </div>
       </div>
+
+      {/* Add UPI Search for admin and manager users */}
+      {showAdminStats && (
+        <div className="mb-6">
+          <Card title={t("Search Cases by UPI")} className="bg-white">
+            <UPISearch />
+          </Card>
+        </div>
+      )}
+
       <StatusCards {...{ status, level }} />
       <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-5">
         <div className="flex flex-col bg-white justify-center">

@@ -50,6 +50,18 @@ interface IDispute extends Document {
   openedBy?: any;
   resolvedBy?: any;
   overdueDays?: number;
+  statusHistory?: {
+    status: string;
+    updatedAt: string;
+    updatedBy: string;
+    reason: string;
+  }[];
+  appealHistory?: {
+    appealedAt: string;
+    appealReason: string;
+    status: string;
+    level: string;
+  }[];
 }
 
 interface DisputeResponse {
@@ -338,6 +350,16 @@ export default class DisputeService {
     if (!_claim) {
       throw new Error("Dispute not found");
     }
+    
+    // Add status history entry
+    _claim.statusHistory = _claim.statusHistory || [];
+    _claim.statusHistory.push({
+      status,
+      updatedAt: new Date().toISOString(),
+      updatedBy: openedBy,
+      reason: feedback
+    });
+
     _claim.status = status;
 
     if (status === "processing") {
@@ -351,6 +373,15 @@ export default class DisputeService {
       _claim.rejectedBy = openedBy;
       _claim.stampedLetter = attachment;
     } else if (status === "appealed") {
+      // Add appeal history entry
+      _claim.appealHistory = _claim.appealHistory || [];
+      _claim.appealHistory.push({
+        appealedAt: new Date().toISOString(),
+        appealReason: feedback,
+        status: 'pending',
+        level: 'nla'
+      });
+
       _claim.appealReason = feedback;
       _claim.appealedAt = new Date().toISOString();
       _claim.level = "nla";
@@ -1418,4 +1449,118 @@ export default class DisputeService {
   private static normalizeDistrict(district: string): string {
     return district?.toLowerCase() ?? "";
   }
+
+  // Add new method to get appeal status by UPI
+  public static getAppealStatusByUPI = async (upiNumber: string) => {
+    const disputes = await Dispute.find({ upiNumber })
+      .sort({ createdAt: -1 })
+      .select('status appealHistory statusHistory claimId')
+      .lean();
+
+    if (!disputes.length) {
+      return {
+        hasAppeals: false,
+        appeals: [],
+        lastUpdate: null,
+        daysFromLastUpdate: 0
+      };
+    }
+
+    const now = new Date();
+    const lastStatusUpdate = disputes[0].statusHistory?.[disputes[0].statusHistory.length - 1];
+    const daysFromLastUpdate = lastStatusUpdate 
+      ? Math.floor((now.getTime() - new Date(lastStatusUpdate.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    return {
+      hasAppeals: disputes.some(d => d.status === 'appealed' || (d.appealHistory && d.appealHistory.length > 0)),
+      appeals: disputes.map(d => ({
+        claimId: d.claimId,
+        status: d.status,
+        appealHistory: d.appealHistory || []
+      })),
+      lastUpdate: lastStatusUpdate?.updatedAt || null,
+      daysFromLastUpdate
+    };
+  }
+
+  public static getDisputesByUPI = async (upiNumber: string) => {
+    try {
+      console.log('Searching for disputes with UPI:', upiNumber);
+      
+      // Normalize UPI number
+      const normalizedUPI = upiNumber.trim();
+      console.log(normalizedUPI)
+
+      const disputes = await Dispute.find({ upiNumber: normalizedUPI })
+        .populate({
+          path: 'claimant',
+          select: 'profile phoneNumber email'
+        })
+        .populate({
+          path: 'resolvedBy',
+          select: 'profile'
+        })
+        .lean();
+
+      console.log(`Found ${disputes.length} disputes for UPI ${normalizedUPI}`);
+
+      if (!disputes.length) {
+        return {
+          disputes: [],
+          summary: {
+            total: 0,
+            appealed: 0,
+            nonAppealed: 0
+          }
+        };
+      }
+
+      // Calculate summary
+      const summary = {
+        total: disputes.length,
+        appealed: disputes.filter(d => 
+          d.status === 'appealed' || 
+          (d.appealHistory && d.appealHistory.length > 0)
+        ).length,
+        nonAppealed: disputes.filter(d => 
+          d.status !== 'appealed' && 
+          (!d.appealHistory || d.appealHistory.length === 0)
+        ).length
+      };
+
+      console.log('Summary:', summary);
+
+      // Process disputes to include appeal status and format dates
+      const processedDisputes = disputes.map(dispute => ({
+        _id: dispute._id.toString(),
+        claimId: dispute.claimId,
+        status: dispute.status?.toLowerCase() || 'unknown',
+        isAppealed: dispute.status === 'appealed' || 
+                    (dispute.appealHistory && dispute.appealHistory.length > 0),
+        createdAt: dispute.createdAt ? new Date(dispute.createdAt).toISOString() : null,
+        claimant: dispute.claimant ? {
+          fullName: `${dispute.claimant.profile?.ForeName || ''} ${dispute.claimant.profile?.Surnames || ''}`.trim(),
+          phoneNumber: dispute.claimant.phoneNumber,
+          email: dispute.claimant.email
+        } : null,
+        appealHistory: dispute.appealHistory || [],
+        daysSinceLastUpdate: dispute.statusHistory?.length 
+          ? Math.floor((new Date().getTime() - new Date(dispute.statusHistory[dispute.statusHistory.length - 1].updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+          : dispute.createdAt 
+            ? Math.floor((new Date().getTime() - new Date(dispute.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+            : 0
+      }));
+
+      console.log('Sample processed dispute:', processedDisputes[0]);
+
+      return {
+        disputes: processedDisputes,
+        summary
+      };
+    } catch (error) {
+      console.error('Error in getDisputesByUPI:', error);
+      throw new Error('Failed to fetch disputes by UPI');
+    }
+  };
 }

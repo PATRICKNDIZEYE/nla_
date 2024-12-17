@@ -65,6 +65,20 @@ export interface Disputes extends mongoose.Document {
     sharedAt: string;
     recipientType: string[];
   }>;
+  appealHistory: [{
+    appealedAt: string;
+    appealReason: string;
+    status: string;
+    level: string;
+    resolvedAt?: string;
+    resolvedBy?: any;
+  }];
+  statusHistory: [{
+    status: string;
+    updatedAt: string;
+    updatedBy: any;
+    reason?: string;
+  }];
 }
 
 const DisputeSchema = new mongoose.Schema<Disputes>({
@@ -256,6 +270,54 @@ const DisputeSchema = new mongoose.Schema<Disputes>({
       type: String,
       required: true
     }]
+  }],
+  appealHistory: [{
+    appealedAt: {
+      type: String,
+      required: true,
+      default: () => new Date().toISOString()
+    },
+    appealReason: {
+      type: String,
+      required: true
+    },
+    status: {
+      type: String,
+      required: true,
+      enum: ['pending', 'approved', 'rejected']
+    },
+    level: {
+      type: String,
+      required: true
+    },
+    resolvedAt: {
+      type: String,
+      default: null
+    },
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    }
+  }],
+  statusHistory: [{
+    status: {
+      type: String,
+      required: true
+    },
+    updatedAt: {
+      type: String,
+      required: true,
+      default: () => new Date().toISOString()
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    reason: {
+      type: String
+    }
   }],
 });
 

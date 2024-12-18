@@ -89,6 +89,12 @@ const nextConfig = {
 
     return config;
   },
+
+  env: {
+    NEXT_PUBLIC_API_URL: 'http://nla.dtecsoftwaresolutions.com/api',
+    NEXT_PUBLIC_BASE_URL: 'http://nla.dtecsoftwaresolutions.com',
+    NEXT_PUBLIC_APP_URL: 'http://nla.dtecsoftwaresolutions.com'
+  }
 };
 
 module.exports = nextConfig;

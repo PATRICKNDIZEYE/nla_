@@ -2,9 +2,9 @@ import { ReactElement } from "react";
 import { GetStaticProps } from "next";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import type { NextPageWithLayout } from "@/pages/_app";
-
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import dynamic from "next/dynamic";
+import { useAppSelector } from "@/redux/store";
 
 const ListInvitations = dynamic(
   () => import("@/components/dashboard/invitations/ListInvitations"),
@@ -16,6 +16,8 @@ type Props = {
 };
 
 const InvitationsPage: NextPageWithLayout = () => {
+  const { data: user } = useAppSelector((state) => state.profile);
+
   return <ListInvitations />;
 };
 

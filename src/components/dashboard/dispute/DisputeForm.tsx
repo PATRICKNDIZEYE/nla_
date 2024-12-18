@@ -47,108 +47,111 @@ const CaseForm: React.FC = () => {
   const dispatch = useAppDispatch();
   const { loading: loadingAuth } = useAppSelector((state) => state.auth);
   const { loading } = useAppSelector((state) => state.dispute);
-  const [land, setLand] = useState<ILandData>({
-    landUseNameKinyarwanda: "Ubuhinzi bw'imyaka",
-    owners: [
-      {
-        fullName: "Jean Mukeshimana",
-        idNo: "1234567890123456",
-        idTypeName: "National ID",
-        countryName: "Rwanda",
-        sharePercentage: "100%",
-      }
-    ],
-    upi: "9/99/99/99/999",
-    area: 2500,
-    rightTypeId: "RT001",
-    landUseTypeId: 2,
-    startTransactionId: "ST001",
-    endTransactionId: null,
-    startLeaseTransactionId: "LT001",
-    startDate: "2023-01-01",
-    isProvisional: true,
-    land_use_type_id: 2,
-    right_type_id: "RT001",
-    landUse: {
-      landUseId: 2,
-      landUseTypeNameKinyarwanda: "Ubuturo",
-      landUseTypeNameEnglish: "Residential",
-      landUseTypeNameFrench: "Résidentiel",
-      endDate: null,
-      leaseTerm: 99,
-    },
-    landUseId: 2,
-    landUseTypeNameKinyarwanda: "Ubuturo bwiza",
-    landUseTypeNameEnglish: "Quality Residential",
-    landUseTypeNameFrench: "Résidence de Qualité",
-    endDate: null,
-    leaseTerm: 50,
-    tenure: {
-      rightTypeId: "RT001",
-      rightTypeName: "Freehold",
-      rightTypeCategory: "Private",
-      rightTypeKind: "Exclusive",
-      isInquiry: false,
-      onCertificate: true,
-    },
-    address:{
-      villageName: "Hello",
-      villageId: "as",
-      cellName: "as",
-      cellId: "asas",
-      sectorName: "asas",
-      sectorId: "asasa",
-      districtName: "asasas",
-      districtId: "asasasas",
-      provinceNameEnglish: "asasas",
-      provinceNameKinyarwanda: "asasasa",
-      provinceNameFrench: "asasas",
-      provinceId: "asasas",
-      string: "asasasas",
-    },
-    rightTypeName: "Freehold",
-    rightTypeCategory: "Private",
-    rightTypeKind: "Exclusive",
-    isInquiry: false,
-    onCertificate: true,
-    inTransaction: false,
-    villageName: "Rugende",
-    villageId: "V001",
-    cellName: "Nyamata",
-    cellId: "C001",
-    sectorName: "Bugesera",
-    sectorId: "S001",
-    districtName: "Bugesera",
-    districtId: "D001",
-    provinceNameEnglish: "Eastern Province",
-    provinceNameKinyarwanda: "Intara y'Iburasirazuba",
-    provinceNameFrench: "Province de l'Est",
-    provinceId: "P001",
-    string: "Extra details about the parcel",
-    parcelLocation: {
-      village: {
-        villageCode: "V001",
-        villageName: "Rugende",
-      },
-      cell: {
-        cellCode: "C001",
-        cellName: "Nyamata",
-      },
-      sector: {
-        sectorCode: "S001",
-        sectorName: "Bugesera",
-      },
-      district: {
-        districtCode: "D001",
-        districtName: "Bugesera",
-      },
-      province: {
-        provinceCode: "P001",
-        provinceName: "Eastern Province",
-      },
-    },
-  }
-  )
+
+  // const [land, setLand] = useState<ILandData>({
+  //   landUseNameKinyarwanda: "Ubuhinzi bw'imyaka",
+  //   owners: [
+  //     {
+  //       fullName: "Jean Mukeshimana",
+  //       idNo: "1234567890123456",
+  //       idTypeName: "National ID",
+  //       countryName: "Rwanda",
+  //       sharePercentage: "100%",
+  //     }
+  //   ],
+  //   upi: "9/99/99/99/999",
+  //   area: 2500,
+  //   rightTypeId: "RT001",
+  //   landUseTypeId: 2,
+  //   startTransactionId: "ST001",
+  //   endTransactionId: null,
+  //   startLeaseTransactionId: "LT001",
+  //   startDate: "2023-01-01",
+  //   isProvisional: true,
+  //   land_use_type_id: 2,
+  //   right_type_id: "RT001",
+  //   landUse: {
+  //     landUseId: 2,
+  //     landUseTypeNameKinyarwanda: "Ubuturo",
+  //     landUseTypeNameEnglish: "Residential",
+  //     landUseTypeNameFrench: "Résidentiel",
+  //     endDate: null,
+  //     leaseTerm: 99,
+  //   },
+  //   landUseId: 2,
+  //   landUseTypeNameKinyarwanda: "Ubuturo bwiza",
+  //   landUseTypeNameEnglish: "Quality Residential",
+  //   landUseTypeNameFrench: "Résidence de Qualité",
+  //   endDate: null,
+  //   leaseTerm: 50,
+  //   tenure: {
+  //     rightTypeId: "RT001",
+  //     rightTypeName: "Freehold",
+  //     rightTypeCategory: "Private",
+  //     rightTypeKind: "Exclusive",
+  //     isInquiry: false,
+  //     onCertificate: true,
+  //   },
+  //   address:{
+  //     villageName: "Hello",
+  //     villageId: "as",
+  //     cellName: "as",
+  //     cellId: "asas",
+  //     sectorName: "asas",
+  //     sectorId: "asasa",
+  //     districtName: "asasas",
+  //     districtId: "asasasas",
+  //     provinceNameEnglish: "asasas",
+  //     provinceNameKinyarwanda: "asasasa",
+  //     provinceNameFrench: "asasas",
+  //     provinceId: "asasas",
+  //     string: "asasasas",
+  //   },
+  //   rightTypeName: "Freehold",
+  //   rightTypeCategory: "Private",
+  //   rightTypeKind: "Exclusive",
+  //   isInquiry: false,
+  //   onCertificate: true,
+  //   inTransaction: false,
+  //   villageName: "Rugende",
+  //   villageId: "V001",
+  //   cellName: "Nyamata",
+  //   cellId: "C001",
+  //   sectorName: "Bugesera",
+  //   sectorId: "S001",
+  //   districtName: "Bugesera",
+  //   districtId: "D001",
+  //   provinceNameEnglish: "Eastern Province",
+  //   provinceNameKinyarwanda: "Intara y'Iburasirazuba",
+  //   provinceNameFrench: "Province de l'Est",
+  //   provinceId: "P001",
+  //   string: "Extra details about the parcel",
+  //   parcelLocation: {
+  //     village: {
+  //       villageCode: "V001",
+  //       villageName: "Rugende",
+  //     },
+  //     cell: {
+  //       cellCode: "C001",
+  //       cellName: "Nyamata",
+  //     },
+  //     sector: {
+  //       sectorCode: "S001",
+  //       sectorName: "Bugesera",
+  //     },
+  //     district: {
+  //       districtCode: "D001",
+  //       districtName: "Bugesera",
+  //     },
+  //     province: {
+  //       provinceCode: "P001",
+  //       provinceName: "Eastern Province",
+  //     },
+  //   },
+  // }
+  // )
+  const [land, setLand] = useState<ILandData | null>(null);
+
   const [secondLand, setSecondLand] = useState<ILandData[]>([]);
 
   const onFinish = async (values: any) => {
@@ -271,7 +274,7 @@ const CaseForm: React.FC = () => {
             toast.success(t("Defendant assigned and notified successfully"));
           } catch (error: any) {
             console.error("Failed to assign defendant:", error);
-            toast.error(t("Case created but failed to assign defendant: ") + error.message);
+            toast.error(t("Case created but failed to assign defendant  : ") + error.message);
           }
         }
 

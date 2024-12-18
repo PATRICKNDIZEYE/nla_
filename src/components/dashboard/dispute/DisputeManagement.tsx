@@ -935,19 +935,7 @@ const CaseManagement = () => {
           {t('Error')}: {error}
         </div>
       )}
-      <div className="mt-4 p-4 bg-gray-100 rounded">
-        <h3 className="font-bold mb-2">Debug Info:</h3>
-        <pre className="whitespace-pre-wrap">
-          {JSON.stringify({
-            loading,
-            error,
-            dataLength: data?.data?.length,
-            totalItems: data?.pagination?.totalItems,
-            userRole,
-            tableParams
-          }, null, 2)}
-        </pre>
-      </div>
+      
       <Modal
         title={t("Edit Case")}
         open={isEditModalVisible}

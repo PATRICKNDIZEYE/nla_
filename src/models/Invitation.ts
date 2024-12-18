@@ -11,6 +11,10 @@ export interface Invitations extends mongoose.Document {
   updatedAt?: string;
   claimant?: any;
   district?: string;
+  level?: {
+    role: string;
+    district?: string;
+  };
 }
 
 export type IInvitation = Pick<
@@ -53,7 +57,16 @@ const InvitationSchema = new mongoose.Schema<Invitations>({
   },
   district: {
     type: String,
+    required: false
   },
+  level: {
+    role: {
+      type: String,
+      enum: ['admin', 'manager', 'user'],
+      default: 'user'
+    },
+    district: String
+  }
 });
 
 InvitationSchema.set("timestamps", true);

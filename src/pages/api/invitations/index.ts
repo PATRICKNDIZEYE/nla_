@@ -14,6 +14,13 @@ export default async function handler(
   switch (method) {
     case "GET":
       try {
+        const { role, userId } = req.query;
+        if (!role || !userId) {
+          return res.status(400).json({
+            message: "Missing required parameters"
+          });
+        }
+
         const result = await InvitationService.getAll(req.query);
         return res.status(200).json(result);
       } catch (error: any) {

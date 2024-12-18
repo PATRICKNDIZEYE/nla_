@@ -49,7 +49,7 @@ const { TextArea } = Input;
 const ListInvitations = () => {
   const { t } = useTranslation("common");
   const { data: user } = useAppSelector((state) => state.profile);
-  const userRole = user?.level?.role;
+  const effectiveRole = getEffectiveRole(user);
   const { data, loading: fetchLoading } = useAppSelector((state) => state.invitation);
   const { search, debouncedSearch, setSearch } = useSearch();
   const dispatch = useAppDispatch();
@@ -189,26 +189,41 @@ const ListInvitations = () => {
   };
 
   const fetchData = () => {
-    console.log('Current user role:', userRole);
-
     const queryParams = {
       ...tableParams,
       search: debouncedSearch,
       dateFrom: dateRange?.[0]?.toISOString(),
       dateTo: dateRange?.[1]?.toISOString(),
       userId: user?._id,
-      role: userRole
+      role: effectiveRole,
+      district: selectedDistrict || user?.level?.district,
+      isSwitch: user?.level?.isSwitch
     };
 
-    console.log('Fetching invitations with params:', queryParams);
+    console.log('Fetching invitations with params:', {
+      userId: user?._id,
+      role: effectiveRole,
+      actualRole: user?.level?.role,
+      district: selectedDistrict || user?.level?.district,
+      isSwitch: user?.level?.isSwitch
+    });
+
     dispatch(getAllInvitations(queryParams));
   };
 
   useEffect(() => {
-    if (user?._id && userRole) {
+    console.log('Role/User Info Updated:', {
+      userId: user?._id,
+      effectiveRole,
+      actualRole: user?.level?.role,
+      isSwitch: user?.level?.isSwitch,
+      district: user?.level?.district
+    });
+    
+    if (user?._id && effectiveRole) {
       fetchData();
     }
-  }, [JSON.stringify(tableParams), debouncedSearch, user?._id, userRole, dateRange]);
+  }, [JSON.stringify(tableParams), debouncedSearch, user?._id, effectiveRole, dateRange]);
 
   const handleDateRangeChange = (dates: [Moment, Moment]) => {
     setDateRange(dates);
@@ -226,6 +241,12 @@ const ListInvitations = () => {
     } finally {
       setLoadingInvitations(prev => ({ ...prev, [invitationId]: false }));
     }
+  };
+
+  const canPerformAction = (invitation: IInvitation) => {
+    if (effectiveRole === 'admin') return true;
+    if (effectiveRole === 'manager' && invitation.district === user?.level?.district) return true;
+    return invitation.invitedBy?._id === user?._id;
   };
 
   const columns: ColumnsType<IInvitation> = [
@@ -308,39 +329,43 @@ const ListInvitations = () => {
       width: 200,
       render: (_, record) => (
         <Space size="small" className="whitespace-nowrap">
-          <Button
-            type="link"
-            onClick={() => handleGenerateInvitationLetter(record)}
-            className="p-0"
-            ref={generateLetterRef}
-          >
-            {t('Generate Letter')}
-          </Button>
-          
-          {record.isCanceled !== true && (
-            <Popconfirm
-              title={t("Are you sure you want to cancel this invitation?")}
-              onConfirm={() => handleCancelInvitation(record._id)}
-              okText={t("Yes")}
-              cancelText={t("No")}
-            >
+          {canPerformAction(record) && (
+            <>
               <Button
                 type="link"
-                danger
-                loading={loadingInvitations[record._id]}
+                onClick={() => handleGenerateInvitationLetter(record)}
                 className="p-0"
-                ref={cancelButtonRef}
+                ref={generateLetterRef}
               >
-                {t('Cancel')}
+                {t('Generate Letter')}
               </Button>
-            </Popconfirm>
+              
+              {!record.isCanceled && (
+                <Popconfirm
+                  title={t("Are you sure you want to cancel this invitation?")}
+                  onConfirm={() => handleCancelInvitation(record._id)}
+                  okText={t("Yes")}
+                  cancelText={t("No")}
+                >
+                  <Button
+                    type="link"
+                    danger
+                    loading={loadingInvitations[record._id]}
+                    className="p-0"
+                    ref={cancelButtonRef}
+                  >
+                    {t('Cancel')}
+                  </Button>
+                </Popconfirm>
+              )}
+            </>
           )}
         </Space>
       ),
     },
   ];
 
-  if (["manager", "admin"].includes(userRole)) {
+  if (["manager", "admin"].includes(effectiveRole)) {
     columns.push({
       title: t("Action"),
       key: "action",
@@ -535,7 +560,7 @@ const ListInvitations = () => {
                 label={t("District")}
                 rules={[{ required: true, message: t("Please select district") }]}
               >
-                <Select disabled={userRole === "manager"}>
+                <Select disabled={effectiveRole === "manager"}>
                   {districts.map((district) => (
                     <Select.Option key={district.name} value={district.name}>
                       {district.name}

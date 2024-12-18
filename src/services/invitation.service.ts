@@ -19,7 +19,7 @@ export default class InvitationService {
       throw new Error("Dispute is not found");
     }
     newData.claimant = dispute.claimant?._id;
-    newData.district = dispute.district?.toLocaleLowerCase();
+    newData.district = dispute.district?.toLowerCase();
     const result = await Invitation.create(newData);
 
     if (newData.invitees?.includes("witnesses")) {
@@ -60,89 +60,141 @@ export default class InvitationService {
 
   static async getAll(params: QueryParams) {
     try {
-      const { page = 1, limit = 10, search, filter = {}, sort = {} } = params;
-      
-      console.log('Service getAll params:', {
-        page,
-        limit,
-        search,
-        filter,
-        hasFilter: Object.keys(filter).length > 0
+      console.log('\n=== Invitation Service: getAll ===');
+      console.log('1. Received params:', {
+        userId: params?.userId,
+        role: params?.role,
+        isSwitch: params?.isSwitch,
+        district: params?.district
       });
 
-      // First get the disputes where user is involved
-      let userDisputes = [];
-      if (filter.$or) {
-        userDisputes = await Dispute.find({
-          $or: [
-            { claimant: params.userId },
-            { defendant: params.userId }
-          ]
-        }).select('_id');
+      const user = await User.findById(params?.userId);
+      if (!user) {
+        throw new Error("User not found");
       }
 
-      // Modify the filter to work with populated fields
-      let finalFilter: any = {};
-      if (filter.$or) {
-        finalFilter = {
-          $or: [
-            { claimant: params.userId },
-            { invitedBy: params.userId },
-            { dispute: { $in: userDisputes.map(d => d._id) } }
-          ]
-        };
-      } else {
-        finalFilter = filter; // For admin/manager filters
+      console.log('2. Found user:', {
+        id: user?._id,
+        actualRole: user?.level?.role,
+        district: user?.level?.district,
+        isSwitch: user?.level?.isSwitch
+      });
+
+      const page = Number(params?.page || 1);
+      const limit = Number(params?.limit || 10);
+      const search = params?.search;
+
+      // Base query object
+      const $match: Record<string, any> = {
+        datetimedeleted: { $exists: false }
+      };
+
+      console.log('3. Building query based on role...');
+      
+      // Handle role-based filtering
+      if (params?.role === "user" || params?.isSwitch) {
+        $match.claimant = new mongoose.Types.ObjectId(params?.userId);
+        console.log('→ User/Switch mode: Filtering for user invitations:', params?.userId);
+      } else if ((params?.role === "admin" || params?.role === "manager") && !params?.isSwitch) {
+        if (user?.level?.district) {
+          $match.district = user.level.district.toLowerCase();
+          console.log('→ Admin/Manager mode: Filtering by district:', user.level.district);
+        } else {
+          console.log('→ Admin mode: No district filter applied');
+        }
+      } else if (user?.level?.district && !params?.isSwitch) {
+        $match.district = user.level.district.toLowerCase();
+        console.log('→ District user: Filtering by district:', user.level.district);
       }
 
-      console.log('Final MongoDB filter:', finalFilter);
+      if (search) {
+        $match.$or = [
+          { location: { $regex: search, $options: 'i' } },
+          { 'dispute.claimId': { $regex: search, $options: 'i' } }
+        ];
+        console.log('4. Added search filters:', search);
+      }
 
-      const query = Invitation.find(finalFilter)
+      console.log('5. Final query:', JSON.stringify($match, null, 2));
+
+      // Get total count
+      const totalCount = await Invitation.countDocuments($match);
+      console.log('6. Total matching invitations:', totalCount);
+
+      // Execute query with pagination
+      const invitations = await Invitation.find($match)
         .populate({
           path: 'dispute',
           populate: [
-            { path: 'claimant', select: 'profile phoneNumber email' },
-            { path: 'defendant', select: 'profile phoneNumber email' }
+            {
+              path: 'claimant',
+              select: 'profile phoneNumber email level'
+            },
+            {
+              path: 'defendant',
+              select: 'profile phoneNumber email level'
+            }
           ]
         })
-        .populate('claimant', 'profile phoneNumber email')
-        .populate('invitedBy', 'profile')
-        .sort({ createdAt: -1 });
+        .populate('invitedBy', 'profile level')
+        .populate('claimant', 'profile level')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
 
-      if (search) {
-        query.or([
-          { location: { $regex: search, $options: 'i' } },
-          { 'dispute.claimId': { $regex: search, $options: 'i' } }
-        ]);
+      console.log('7. Retrieved invitations:', invitations.length);
+      if (invitations.length > 0) {
+        console.log('Sample invitation:', {
+          id: invitations[0]._id,
+          district: invitations[0].district,
+          claimant: invitations[0].claimant?._id,
+          userRole: invitations[0].userRole
+        });
       }
 
-      // Add date range filtering if provided
-      if (params.dateFrom) {
-        query.where('dateTime').gte(new Date(params.dateFrom));
-      }
-      if (params.dateTo) {
-        query.where('dateTime').lte(new Date(params.dateTo));
-      }
+      // Process invitations to add userRole
+      const processedInvitations = invitations.map(invitation => {
+        let userRole = 'viewer';
 
-      const skip = (page - 1) * limit;
-      const [data, total] = await Promise.all([
-        query.skip(skip).limit(limit),
-        Invitation.countDocuments(finalFilter)
-      ]);
+        if (params?.isSwitch) {
+          userRole = 'claimant';
+        } else if (params?.role === "manager" && !params?.isSwitch && 
+                  user?.level?.district?.toLowerCase() === invitation.district?.toLowerCase()) {
+          userRole = 'manager';
+        } else if (params?.role === "admin" && !params?.isSwitch) {
+          userRole = 'admin';
+        } else if (params?.role === "user") {
+          userRole = 'claimant';
+        }
 
-      console.log(`Found ${total} total invitations, returning ${data.length} results`);
+        console.log('8. Processed invitation:', {
+          id: invitation._id,
+          assignedRole: userRole,
+          userDistrict: user?.level?.district,
+          invitationDistrict: invitation.district
+        });
+
+        return {
+          ...invitation,
+          _id: invitation._id.toString(),
+          userRole
+        };
+      });
+
+      console.log('=== End Invitation Service ===\n');
 
       return {
-        data,
+        data: processedInvitations,
         pagination: {
-          totalItems: total,
-          totalPages: Math.ceil(total / limit),
+          totalItems: totalCount,
           currentPage: page,
-          itemsPerPage: limit
-        }
+          pageSize: limit,
+          totalPages: Math.ceil(totalCount / limit),
+        },
       };
     } catch (error) {
-      console.error('Error in invitation service getAll:', error);
+      console.error('Error in getAll invitations:', error);
       throw error;
     }
   }
